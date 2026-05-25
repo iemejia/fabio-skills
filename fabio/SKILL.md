@@ -1,8 +1,8 @@
 ---
 name: fabio
-description: Manage Microsoft Fabric artifacts and data using the fabio CLI — an agent-first command-line tool with structured JSON output, composable piping, and machine-readable errors. Use when working with Fabric workspaces, lakehouses, warehouses, notebooks, eventhouses, semantic models, reports, data pipelines, KQL databases, eventstreams, or any Fabric REST API resource. Covers CRUD operations, file upload/download, SQL/DAX/KQL queries, Git integration, deployment pipelines, and administration.
+description: "Manage Microsoft Fabric artifacts and data using the fabio CLI - an agent-first command-line tool with structured JSON output, composable piping, and machine-readable errors. Use when working with Fabric workspaces, lakehouses, warehouses, notebooks, eventhouses, semantic models, reports, data pipelines, KQL databases, eventstreams, or any Fabric REST API resource. Covers CRUD operations, file upload/download, SQL/DAX/KQL queries, Git integration, deployment pipelines, and administration."
 license: Apache-2.0
-compatibility: Requires fabio binary (Linux/macOS/Windows x64/arm64), Azure CLI (az), and az login credentials. Strongly recommended companions: gh (GitHub CLI) for release downloads and az for authentication and supplementary Azure operations. Network access to api.fabric.microsoft.com and onelake.dfs.fabric.microsoft.com required.
+compatibility: "Requires fabio binary (Linux/macOS/Windows x64/arm64), Azure CLI (az), and az login credentials. Strongly recommended companions: gh (GitHub CLI) for release downloads and az for authentication and supplementary Azure operations. Network access to api.fabric.microsoft.com and onelake.dfs.fabric.microsoft.com required."
 metadata:
   author: iemejia
   version: "0.7.0"
