@@ -19,7 +19,7 @@ npx skills add iemejia/fabio-skills --global
 ### Install for a specific agent only
 
 ```bash
-npx skills add iemejia/fabio-skills --agent copilot
+npx skills add iemejia/fabio-skills --agent github-copilot
 ```
 
 ### Verify installation
