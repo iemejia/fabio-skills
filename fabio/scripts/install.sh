@@ -129,7 +129,7 @@ fi
 # Verify installation
 if command -v fabio &>/dev/null; then
   echo "Verification:"
-  fabio auth status 2>/dev/null || echo "  fabio installed successfully (run 'az login' to authenticate)"
+  fabio auth status 2>/dev/null || echo "  fabio installed successfully (run 'fabio auth login' to authenticate)"
 else
   echo "Run 'fabio auth status' to verify installation after adding to PATH."
 fi

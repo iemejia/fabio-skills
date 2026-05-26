@@ -2,7 +2,7 @@
 name: fabio
 description: "Manage Microsoft Fabric artifacts and data using the fabio CLI - an agent-first command-line tool with structured JSON output, composable piping, and machine-readable errors. Use when working with Fabric workspaces, lakehouses, warehouses, notebooks, eventhouses, semantic models, reports, data pipelines, KQL databases, eventstreams, or any Fabric REST API resource. Covers CRUD operations, file upload/download, SQL/DAX/KQL queries, Git integration, deployment pipelines, and administration."
 license: Apache-2.0
-compatibility: "Requires fabio binary (Linux/macOS/Windows x64/arm64), Azure CLI (az), and az login credentials. Strongly recommended companions: gh (GitHub CLI) for release downloads and az for authentication and supplementary Azure operations. Network access to api.fabric.microsoft.com and onelake.dfs.fabric.microsoft.com required."
+compatibility: "Requires fabio binary (Linux/macOS/Windows x64/arm64). Authentication via `fabio auth login` (uses same Microsoft Identity platform as Azure CLI). Strongly recommended companions: az (Azure CLI) for supplementary Azure operations, gh (GitHub CLI) for release downloads. Network access to api.fabric.microsoft.com and onelake.dfs.fabric.microsoft.com required."
 metadata:
   author: iemejia
   version: "0.7.0"
@@ -54,18 +54,18 @@ cargo install --git https://github.com/iemejia/fabio.git
 
 ## Authentication
 
-fabio delegates authentication to the Azure credential chain. No built-in token storage.
+fabio uses the same Microsoft Identity platform (Azure AD / Entra ID) as the Azure CLI. Prefer `fabio auth login` as the primary authentication mechanism.
 
 ```bash
-# Step 1: Login via Azure CLI
-az login
+# Preferred: Authenticate directly with fabio
+fabio auth login
 
-# Step 2: Verify fabio can authenticate
+# Verify authentication status
 fabio auth status
 ```
 
 Supported credential sources (via DefaultAzureCredential):
-- Azure CLI (`az login`)
+- **fabio auth login** (preferred — launches browser-based Microsoft Identity flow)
 - Environment variables (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET`)
 - Managed Identity (when running on Azure)
 
@@ -75,7 +75,7 @@ fabio works best alongside these CLIs:
 
 | Tool | Purpose | Install |
 |------|---------|---------|
-| `az` (Azure CLI) | **Required** for authentication (`az login`) and supplementary Azure operations (networking, IAM, storage accounts) that fall outside Fabric scope | [Install Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) |
+| `az` (Azure CLI) | Supplementary Azure operations (networking, IAM, storage accounts) that fall outside Fabric scope. | [Install Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) |
 | `gh` (GitHub CLI) | Download fabio releases (`gh release download`), manage issues, and authenticate with GitHub repos for Fabric Git integration | [Install GitHub CLI](https://cli.github.com/) |
 
 ```bash
@@ -87,12 +87,12 @@ gh --version
 gh release download --repo iemejia/fabio --pattern "fabio-linux-x64.tar.gz" --dir /tmp
 tar xzf /tmp/fabio-linux-x64.tar.gz -C ~/.local/bin
 
-# Use az for authentication (required before fabio works)
-az login
+# Authenticate with fabio
+fabio auth login
 fabio auth status
 ```
 
-`az` is essential because fabio delegates all authentication to `DefaultAzureCredential`, which relies on `az login` session tokens. `gh` simplifies downloading fabio binaries and is useful when Fabric workspaces are connected to GitHub repositories via `fabio git connect`.
+`fabio auth login` handles authentication independently using the Microsoft Identity platform. `az` remains useful for Azure operations outside Fabric scope (networking, IAM, storage). `gh` simplifies downloading fabio binaries and is useful when Fabric workspaces are connected to GitHub repositories via `fabio git connect`.
 
 ## Core Concepts
 
@@ -155,7 +155,7 @@ fabio agent-context
 
 ```bash
 # 1. Authenticate
-az login && fabio auth login
+fabio auth login
 
 # 2. Create workspace with capacity
 fabio workspace create --name "analytics"

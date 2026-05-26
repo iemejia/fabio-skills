@@ -65,13 +65,13 @@ cargo install --git https://github.com/iemejia/fabio.git
 
 | Tool | Why | Install |
 |------|-----|---------|
-| **`az`** (Azure CLI) | Required for authentication. fabio delegates all auth to `az login`. Also useful for supplementary Azure operations outside Fabric scope. | [Install Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) |
+| **`az`** (Azure CLI) | Supplementary Azure operations outside Fabric scope (networking, IAM, storage). | [Install Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) |
 | **`gh`** (GitHub CLI) | Download fabio releases easily. Useful when Fabric workspaces are connected to GitHub repos via `fabio git connect`. | [Install GitHub CLI](https://cli.github.com/) |
 
 ### 3. Authenticate
 
 ```bash
-az login
+fabio auth login
 fabio auth status
 ```
 

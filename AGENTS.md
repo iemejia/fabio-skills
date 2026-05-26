@@ -89,7 +89,7 @@ npx skills list
 | Dependency | Role | Required |
 |---|---|---|
 | `fabio` binary | The CLI this skill teaches agents to use | Yes (runtime) |
-| `az` (Azure CLI) | Authentication provider (`az login`) | Yes (runtime) |
+| `az` (Azure CLI) | Supplementary Azure operations (networking, IAM, storage) outside Fabric scope | Recommended |
 | `gh` (GitHub CLI) | Release downloads, Git integration | Recommended |
 | `npx skills` | Skill installation and management | For installation only |
 

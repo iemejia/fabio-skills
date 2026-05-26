@@ -6,7 +6,6 @@ Practical examples for common Microsoft Fabric workflows using fabio.
 
 ```bash
 # Setup
-az login
 fabio auth login
 
 # Create workspace with capacity
@@ -334,13 +333,12 @@ fabio workspace show --id "nonexistent" 2>&1
 # Check exit code
 fabio auth status
 if [ $? -ne 0 ]; then
-  echo "Not authenticated, running az login"
-  az login
+  echo "Not authenticated, running fabio auth login"
   fabio auth login
 fi
 
 # Common error codes and recovery:
-# AUTH_REQUIRED     -> Run: az login && fabio auth login
+# AUTH_REQUIRED     -> Run: fabio auth login
 # FORBIDDEN         -> Check workspace role assignment
 # NOT_FOUND         -> Verify ID with list command
 # CONFLICT          -> Name already exists, choose different name
