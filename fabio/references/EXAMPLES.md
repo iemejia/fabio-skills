@@ -155,13 +155,22 @@ fabio sql-database query --workspace $WS --id $DB \
 ## Git Integration
 
 ```bash
-# Connect workspace to GitHub
+# Connect workspace to GitHub (requires --connection-id)
 fabio git connect --workspace $WS \
-  --provider GitHub --org myorg --repo fabric-project \
-  --branch main --directory "/"
+  --provider github --owner myorg --repo fabric-project \
+  --branch main --directory "/" --connection-id $CONN_ID
+
+# Connect workspace to Azure DevOps (no connection ID needed)
+fabio git connect --workspace $WS \
+  --provider azure-devops --org myorg --project myproject --repo myrepo \
+  --branch main
 
 # Initialize (required after connect)
-fabio git init --workspace $WS
+# Use prefer-workspace when workspace has items and repo is empty
+fabio git init --workspace $WS --strategy prefer-workspace --wait
+
+# Use prefer-remote when repo has content to pull into workspace
+fabio git init --workspace $WS --strategy prefer-remote --wait
 
 # Check status
 fabio git status --workspace $WS
@@ -169,14 +178,59 @@ fabio git status --workspace $WS
 # Commit all changes
 fabio git commit --workspace $WS --all -m "Add new lakehouse tables"
 
+# Commit specific items
+fabio git commit --workspace $WS -m "Update notebook" \
+  --items '[{"objectId":"<item-id>"}]'
+
 # Pull remote changes
 fabio git pull --workspace $WS
+
+# Pull with conflict resolution
+fabio git pull --workspace $WS --conflict-resolution prefer-remote
 
 # Switch branches
 fabio git checkout --workspace $WS --branch feature/new-pipeline
 
 # Show tracked items
 fabio git show-tracked --workspace $WS
+
+# Show connection details
+fabio git connection show --workspace $WS
+
+# Disconnect workspace from git
+fabio git disconnect --workspace $WS
+```
+
+### Azure DevOps Setup for Git Integration
+
+```bash
+# Prerequisite: The Fabric user must have access to the Azure DevOps org
+# Add user to org (run as org owner)
+az devops user add --email-id "user@tenant.onmicrosoft.com" \
+  --license-type express --org https://dev.azure.com/myorg
+
+# Add to project Contributors group
+az devops security group membership add \
+  --group-id "$CONTRIBUTOR_GROUP_DESCRIPTOR" \
+  --member-id "$USER_DESCRIPTOR" \
+  --org https://dev.azure.com/myorg
+
+# Ensure repo has at least one commit (required for Fabric to connect)
+# Empty repos have no defaultBranch and will fail git connect
+
+# Connect (Automatic credentials — no Fabric connection needed)
+fabio git connect --workspace $WS \
+  --provider azure-devops --org myorg --project myproject --repo myrepo \
+  --branch main
+
+# Full CI/CD workflow
+WS=$(fabio workspace create --name "dev-env" -q id -o plain)
+fabio workspace assign-capacity --id $WS --capacity $CAP
+fabio lakehouse create --workspace $WS --name "DataLake"
+fabio git connect --workspace $WS --provider azure-devops \
+  --org myorg --project myproject --repo myrepo --branch main
+fabio git init --workspace $WS --strategy prefer-workspace --wait
+fabio git commit --workspace $WS --all -m "Initial workspace setup"
 ```
 
 ## Deployment Pipeline (CI/CD)

@@ -318,6 +318,36 @@ User-provided JSON `{"key": "value"}` is converted to the API format:
 - `upsert` replaces ALL roles atomically (PUT semantics, not PATCH)
 - No individual role create/update — always send the full set
 
+## Git Integration (Azure DevOps)
+
+### Cross-Service Identity Requirement
+Fabric's git integration uses the authenticated user's identity to access Azure DevOps. The user (OID from the Fabric token) must be:
+1. A member of the Azure DevOps organization
+2. Have at least Contributor access to the project/repo
+
+Without this, `git connect` returns `InsufficientPrivileges` (403). The error looks like a workspace permission issue but is actually Azure DevOps rejecting the identity.
+
+### Same AAD Tenant Required
+The Azure DevOps organization must be backed by (connected to) the same Azure AD tenant as the Fabric workspace. Cross-tenant git integration is not supported with "Automatic" credentials.
+
+### Azure DevOps vs GitHub Credentials
+| Provider | Connection ID | Credential Mode |
+|----------|---------------|-----------------|
+| `azure-devops` | NOT required | "Automatic" — Fabric uses caller's OAuth token directly |
+| `github` | ALWAYS required | Must pre-configure a `GitHubSourceControl` connection |
+
+### `directoryName` is Required
+The Fabric API rejects `git connect` without a `directoryName` field in `gitProviderDetails`. fabio defaults to `"/"` (repo root). Omitting it returns: `InvalidInput: The DirectoryName field is required.`
+
+### Permission Propagation Delay
+After adding a user to an Azure DevOps org/project, permissions take 5-10 seconds to propagate. Fabric's git connect can fail with 403 immediately after granting access. Retry after a brief wait.
+
+### Multiple Workspaces on Same Repo
+Different Fabric workspaces can connect to the same Azure DevOps repo and branch (same `directoryName`). Each workspace maintains independent sync state. Useful for CI/CD workspace-per-environment patterns.
+
+### Repo Must Have a Branch
+Azure DevOps repos without any commits have no `defaultBranch`. You must push an initial commit to create `main` before Fabric can connect.
+
 ## Gateway Operations
 - PATCH requires `"type"` field in body or fails silently
 - Non-existent principal returns 500 (not clean validation)
