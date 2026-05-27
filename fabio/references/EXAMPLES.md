@@ -393,11 +393,228 @@ fi
 
 # Common error codes and recovery:
 # AUTH_REQUIRED     -> Run: fabio auth login
-# FORBIDDEN         -> Check workspace role assignment
+# FORBIDDEN         -> Check workspace role assignment (or admin scope for admin commands)
 # NOT_FOUND         -> Verify ID with list command
 # CONFLICT          -> Name already exists, choose different name
 # RATE_LIMITED      -> Retry after delay (fabio retries automatically)
 # CAPACITY_INACTIVE -> Resume/assign capacity to workspace
 # INVALID_INPUT     -> Check PascalCase values, required fields
 # TIMEOUT           -> Increase --timeout or check capacity status
+```
+
+## Tenant Administration
+
+### List and Manage Tenant Settings
+
+```bash
+# List all tenant settings (165+ settings)
+fabio admin list-tenant-settings -o table
+
+# Show a specific setting
+fabio admin show-tenant-setting --name "ExportToImage"
+
+# Enable a tenant setting
+fabio admin update-tenant-setting --name "ExportToImage" \
+  --content '{"enabled": true}'
+
+# Enable with security group scoping
+fabio admin update-tenant-setting --name "ExportToImage" \
+  --content '{"enabled": true, "enabledSecurityGroups": [{"graphId": "<group-id>"}]}'
+
+# Disable a setting
+fabio admin update-tenant-setting --name "AllowExternalDataSharingSwitch" \
+  --content '{"enabled": false}'
+
+# Check if a setting is delegatable to capacity
+fabio admin show-tenant-setting --name "PlatformMonitoringTenantSetting" | \
+  jq '.data.delegateToCapacity'
+```
+
+### Capacity-Level Setting Overrides
+
+```bash
+# List overrides for a capacity
+fabio admin list-capacity-tenant-setting-overrides --capacity $CAP_ID
+
+# Create/update a capacity override (only for delegatable settings)
+fabio admin update-capacity-tenant-setting-override \
+  --capacity $CAP_ID --name "PlatformMonitoringTenantSetting" \
+  --content '{"enabled": true}'
+
+# Revert to tenant default (disable override)
+fabio admin update-capacity-tenant-setting-override \
+  --capacity $CAP_ID --name "PlatformMonitoringTenantSetting" \
+  --content '{"enabled": false}'
+```
+
+### Tag Lifecycle (Governance)
+
+```bash
+# Create a governance tag
+TAG_RESPONSE=$(fabio admin create-tag \
+  --content '{"createTagsRequest": [{"displayName": "Production"}]}')
+TAG_ID=$(echo $TAG_RESPONSE | jq -r '.data.tags[0].id')
+
+# List all tags
+fabio admin list-tags -o table
+
+# Update tag metadata
+fabio admin update-tag --id $TAG_ID \
+  --content '{"displayName": "Production", "description": "Production-ready items"}'
+
+# Apply tag to workspace
+fabio workspace apply-tags --id $WS --tag-ids "[\"$TAG_ID\"]"
+
+# Apply tag to item
+fabio item apply-tags --workspace $WS --id $ITEM_ID --tag-ids "[\"$TAG_ID\"]"
+
+# Clean up
+fabio workspace unapply-tags --id $WS --tag-ids "[\"$TAG_ID\"]"
+fabio admin delete-tag --id $TAG_ID
+```
+
+### Domain Management
+
+```bash
+# Create a domain
+DOMAIN=$(fabio admin create-domain --name "Sales Analytics" -q id -o plain)
+
+# Assign workspaces to domain
+fabio admin assign-domain-workspaces --id $DOMAIN \
+  --content '{"workspacesIds": ["'$WS_DEV'", "'$WS_PROD'"]}'
+
+# Assign all workspaces on a capacity to a domain
+fabio admin assign-domain-workspaces-by-capacities --id $DOMAIN \
+  --content '{"capacitiesIds": ["'$CAP_ID'"]}'
+
+# Assign workspaces owned by specific users
+fabio admin assign-domain-workspaces-by-principals --id $DOMAIN \
+  --principal-type User \
+  --content '{"principals": [{"id": "'$USER_ID'", "type": "User"}]}'
+
+# List workspaces in domain
+fabio admin list-domain-workspaces --id $DOMAIN
+
+# Assign contributors to domain
+fabio admin bulk-assign-domain-roles --id $DOMAIN \
+  --content '{"type": "Contributors", "principals": [{"id": "'$USER_ID'", "type": "User"}]}'
+
+# Sync contributor roles to subdomains
+fabio admin sync-domain-roles-to-subdomains --id $DOMAIN --role Contributor
+
+# Unassign all workspaces atomically
+fabio admin unassign-all-domain-workspaces --id $DOMAIN
+
+# Delete domain
+fabio admin delete-domain --id $DOMAIN
+```
+
+### Admin Workspace Operations
+
+```bash
+# List all workspaces in tenant (admin view)
+fabio admin list-workspaces --all
+
+# Show workspace details (includes capacity assignment, state)
+fabio admin show-workspace --id $WS
+
+# List users with access
+fabio admin list-workspace-users --id $WS
+
+# Discover which workspaces have git connections
+fabio admin discover-git-connections
+
+# List network communication policies
+fabio admin list-network-policies
+```
+
+### Admin Item Operations
+
+```bash
+# List all items tenant-wide (with type filter)
+fabio admin list-items --type Report
+
+# Show item admin details (includes creatorPrincipal, defaultIdentity)
+fabio admin show-item --workspace $WS --id $ITEM_ID
+
+# List item permissions
+fabio admin list-item-users --workspace $WS --id $ITEM_ID
+
+# List all access for a specific user
+fabio admin list-user-access --user-id $PRINCIPAL_ID
+```
+
+### Sharing Link Management
+
+```bash
+# Remove all org-wide sharing links (LRO - polls until complete)
+fabio admin remove-all-sharing-links \
+  --content '{"sharingLinkType": "OrgLink"}'
+
+# Remove sharing links for specific reports (only Report type supported)
+fabio admin bulk-remove-sharing-links \
+  --content '{"sharingLinks": [{"itemId": "'$REPORT_ID'", "itemType": "Report", "workspaceId": "'$WS'"}]}'
+```
+
+### External Data Shares
+
+```bash
+# List all external data shares (requires AllowExternalDataSharingSwitch enabled)
+fabio admin list-external-data-shares
+
+# Revoke a specific external data share
+fabio admin revoke-external-data-share \
+  --workspace $WS --item-id $ITEM_ID --share-id $SHARE_ID
+```
+
+### Workload Management
+
+```bash
+# List available workloads
+fabio admin list-workloads
+
+# List current assignments
+fabio admin list-workload-assignments
+
+# Assign workload at tenant level
+fabio admin create-workload-assignment \
+  --content '{"type": "Tenant", "workloadId": "my-workload-id"}'
+
+# Assign workload to specific capacity
+fabio admin create-workload-assignment \
+  --content '{"type": "Capacity", "workloadId": "my-workload-id", "capacityId": "'$CAP_ID'"}'
+
+# Remove assignment
+fabio admin delete-workload-assignment --id $ASSIGNMENT_ID
+```
+
+## Gateway Management
+
+```bash
+# List gateways
+fabio gateway list -o table
+
+# Create VNet gateway (requires subnet delegated to Microsoft.PowerPlatform/vnetaccesslinks)
+GW=$(fabio gateway create --name "DataGateway" \
+  --capacity $CAP_ID \
+  --subscription $SUB_ID \
+  --resource-group $RG \
+  --vnet "my-vnet" \
+  --subnet "gateway-subnet" \
+  --inactivity-minutes 120 \
+  --member-count 1 \
+  -q id -o plain)
+
+# Update gateway (inactivity timeout)
+fabio gateway update --id $GW --inactivity-minutes 240
+
+# Assign roles
+fabio gateway add-role-assignment --id $GW \
+  --principal $USER_ID --principal-type User --role ConnectionCreator
+
+# List role assignments
+fabio gateway list-role-assignments --id $GW -o table
+
+# Delete gateway
+fabio gateway delete --id $GW
 ```

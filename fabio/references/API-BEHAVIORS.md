@@ -352,3 +352,150 @@ Azure DevOps repos without any commits have no `defaultBranch`. You must push an
 - PATCH requires `"type"` field in body or fails silently
 - Non-existent principal returns 500 (not clean validation)
 - Duplicate role assignment returns 409 with typo "assignemnt" in error message
+- VNet gateway creation takes 60-90 seconds (no LRO — returns 201 directly after delay)
+- Roles: `Admin`, `ConnectionCreator`, `ConnectionCreatorWithResharing`
+- Cannot demote last Admin (returns error)
+- `inactivityMinutesBeforeSleep` must be one of: 30, 60, 90, 120, 150, 240, 360, 480, 720, 1440
+- `numberOfMemberGateways` must be 1-9
+
+## Admin API
+
+### Required Permissions
+All admin endpoints require **Fabric Admin** role (tenant-level). Standard workspace Admin/Member roles are NOT sufficient. Errors include: `"The caller does not have sufficient scopes to perform this operation"`.
+
+### Non-Standard Response Keys
+Unlike most Fabric APIs that use `"value"` as the array key, admin endpoints use varied keys:
+
+| Endpoint | Response Array Key |
+|----------|-------------------|
+| `/admin/workspaces` | `"workspaces"` |
+| `/admin/items` | `"itemEntities"` |
+| `/admin/workspaces/{id}/users` | `"accessDetails"` |
+| `/admin/items/{id}/users` | `"accessDetails"` |
+| `/admin/users/{id}/access` | `"accessEntities"` |
+| `/admin/domains` | `"domains"` |
+| `/admin/tenantsettings` | `"tenantSettings"` |
+| `/admin/tags` | `"value"` (standard) |
+| `/admin/workloads` | `"value"` (standard) |
+| `/admin/workloads/assignments` | `"value"` (standard) |
+
+fabio normalizes all these into the standard `{"data": [...], "count": N}` envelope.
+
+### Admin Workspace Fields
+Admin workspace responses use `name` (NOT `displayName`). Fields: `id`, `name`, `state`, `type`, `capacityId`, `tags`.
+
+### Admin Item Fields
+Admin item responses use `name` (NOT `displayName`). Fields: `id`, `type`, `name`, `state`, `lastUpdatedDate`, `creatorPrincipal`, `workspaceId`, `capacityId`.
+
+### Tenant Settings
+
+**Structure:**
+```json
+{
+  "settingName": "ExportToImage",
+  "title": "Export to image",
+  "enabled": true,
+  "tenantSettingGroup": "Export and sharing settings",
+  "canSpecifySecurityGroups": true,
+  "delegateToCapacity": false,
+  "delegateToDomain": false,
+  "enabledSecurityGroups": [],
+  "excludedSecurityGroups": []
+}
+```
+
+**Update body (minimum):**
+```json
+{"enabled": true}
+```
+
+**Update response:** Returns ALL settings in the SAME group (not just the updated one).
+
+**Capacity override rules:**
+- Only settings with `"delegateToCapacity": true` can have capacity-level overrides
+- Attempting to override a non-delegatable setting returns: "The request could not be processed due to missing or invalid information"
+- Override body: `{"enabled": true|false, "delegateToWorkspace"?: bool}`
+
+**Domain override rules:**
+- Only settings with `"delegateToDomain": true` can have domain-level overrides
+- Same pattern as capacity overrides
+
+### Tag Operations
+
+**Create body:**
+```json
+{"createTagsRequest": [{"displayName": "Production"}]}
+```
+Optional scope: `{"type": "Tenant"}` or `{"type": "Domain", "domainId": "<uuid>"}`.
+
+**Response:** `{"tags": [{"id": "...", "displayName": "...", "scope": {...}}]}`
+
+**Rate limits:** Tag operations limited to 25 requests/minute.
+
+### Domain Workspace Assignment
+
+**By capacities:** Assigns ALL workspaces on that capacity to the domain.
+```json
+{"capacitiesIds": ["<uuid>"]}
+```
+
+**By principals:** Assigns all workspaces owned/administered by those principals.
+```json
+{"principals": [{"id": "<uuid>", "type": "User"}]}
+```
+Requires `--principal-type` flag.
+
+**Additive behavior:** `assign-domain-workspaces-by-principals` only assigns workspaces NOT already assigned to another domain.
+
+### Domain Role Sync
+- `sync-domain-roles-to-subdomains` requires `--role` flag
+- Only Contributors can be synced — syncing Admins returns: "Syncing admins to subdomains is not supported"
+
+### Bulk Role Assignment
+```json
+{"type": "Contributors", "principals": [{"id": "<uuid>", "type": "User"}]}
+```
+Type values: `"Contributors"` or `"Admins"`.
+
+### Sharing Links (LRO)
+Both sharing link commands are LRO (return 202, must poll):
+- `remove-all-sharing-links`: `{"sharingLinkType": "OrgLink"}` — type values: `OrgLink`, `GuestLink`, `AnonymousLink`, `SpecificPeopleLink`
+- `bulk-remove-sharing-links`: Only supports Report type. Other types return "not supported for the requested item type"
+
+### Labels (Microsoft Purview Required)
+- `bulk-set-labels` requires M365 E5 licensing + Purview label policy configured in tenant
+- `bulk-remove-labels` works without Purview (returns per-item status even if no label set)
+
+### External Data Shares
+- `list-external-data-shares` requires tenant setting `AllowExternalDataSharingSwitch` enabled
+- Without it: FORBIDDEN with "tenant setting 'External data sharing' is disabled"
+
+### Workload Assignment Body Format
+Discriminated union with `type` field:
+```json
+// Tenant-level
+{"type": "Tenant", "workloadId": "<id>"}
+
+// Capacity-level
+{"type": "Capacity", "workloadId": "<id>", "capacityId": "<uuid>"}
+
+// Workspace-level
+{"type": "Workspace", "workloadId": "<id>", "workspaceId": "<uuid>"}
+```
+
+### Workspace Restore
+- `POST /admin/workspaces/{id}/restore` with `{"restoredWorkspaceName": "<name>", "capacityId": "<uuid>"}`
+- Note: The `restoredWorkspaceName` parameter is ignored by server — workspace keeps original name
+
+### Temporary Admin Access
+- `grant-admin-access` / `remove-admin-access` manage TEMPORARY admin access only
+- Returns NOT_FOUND if the caller already has permanent Admin access to the workspace
+
+### Admin Error Enrichment
+fabio provides 6 targeted error patterns for admin commands:
+1. **External data sharing disabled** → exact setting name + CLI enable command
+2. **Tenant setting disabled** → Admin Portal path + CLI command
+3. **Item type not supported** → only Report type works for sharing link removal
+4. **Purview labels not configured** → M365 E5 + licensing prerequisites
+5. **Feature not available** → tenant admin feature flag guidance
+6. **Sync admins not supported** → suggests `--role Contributor`

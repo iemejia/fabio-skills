@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: "Requires fabio binary (Linux/macOS/Windows x64/arm64). Authentication via `fabio auth login` (uses same Microsoft Identity platform as Azure CLI). Strongly recommended companions: az (Azure CLI) for supplementary Azure operations, gh (GitHub CLI) for release downloads. Network access to api.fabric.microsoft.com and onelake.dfs.fabric.microsoft.com required."
 metadata:
   author: iemejia
-  version: "0.7.0"
+  version: "0.9.0"
   repository: https://github.com/iemejia/fabio
 ---
 
@@ -54,20 +54,21 @@ cargo install --git https://github.com/iemejia/fabio.git
 
 ## Authentication
 
-fabio uses the same Microsoft Identity platform (Azure AD / Entra ID) as the Azure CLI. Prefer `fabio auth login` as the primary authentication mechanism.
+fabio has its own built-in OAuth2 device code flow — no Azure CLI dependency required.
 
 ```bash
-# Preferred: Authenticate directly with fabio
+# Authenticate directly with fabio (opens browser for device code)
 fabio auth login
 
 # Verify authentication status
 fabio auth status
 ```
 
-Supported credential sources (via DefaultAzureCredential):
-- **fabio auth login** (preferred — launches browser-based Microsoft Identity flow)
+Supported credential sources (via DefaultAzureCredential chain):
+- **fabio auth login** (preferred — independent OAuth2 device code, no `az` needed)
 - Environment variables (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET`)
 - Managed Identity (when running on Azure)
+- Azure CLI (`az login`) as fallback
 
 ## Companion Tools (Strongly Recommended)
 
@@ -202,7 +203,7 @@ fabio has 37+ command groups covering the full Fabric API surface. See [referenc
 **Mirroring**: mirrored-database, mirrored-catalog, mirrored-databricks-catalog, mirrored-warehouse, cosmos-db-database, snowflake-database, mounted-data-factory
 **Integration**: git, connection, deployment-pipeline, domain, job-scheduler, variable-library, user-data-function
 **Security**: onelake-security, managed-private-endpoint, gateway
-**Admin**: admin (49 subcommands for tenant administration)
+**Admin**: admin (50 subcommands for tenant administration — tenant settings, workspaces, items, users, domains, tags, labels, sharing links, external data shares, workloads)
 **Tooling**: profile, jobs, feedback, agent-context, operation
 
 ## Composability Patterns

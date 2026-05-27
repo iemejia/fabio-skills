@@ -444,3 +444,125 @@ fabio agent-context    # Machine-readable command schema for AI agents
 fabio operation get-state --id <operation-id>
 fabio operation get-result --id <operation-id>
 ```
+
+## Security & Networking
+
+### gateway
+```
+fabio gateway list
+fabio gateway show --id <id>
+fabio gateway create --name <name> --capacity <cap-id> --subscription <sub-id> --resource-group <rg> --vnet <vnet-name> --subnet <subnet-name> [--inactivity-minutes <30-1440>] [--member-count <1-9>]
+fabio gateway update --id <id> [--name <new-name>] [--inactivity-minutes <n>] [--member-count <n>]
+fabio gateway delete --id <id>
+fabio gateway list-members --id <id>
+fabio gateway update-member --id <id> --member-id <mid> ...
+fabio gateway delete-member --id <id> --member-id <mid>
+fabio gateway list-role-assignments --id <id>
+fabio gateway add-role-assignment --id <id> --principal <pid> --principal-type <User|Group|ServicePrincipal> --role <Admin|ConnectionCreator|ConnectionCreatorWithResharing>
+fabio gateway show-role-assignment --id <id> --assignment-id <aid>
+fabio gateway update-role-assignment --id <id> --assignment-id <aid> --role <role>
+fabio gateway delete-role-assignment --id <id> --assignment-id <aid>
+```
+
+### onelake-security
+```
+fabio onelake-security list --workspace <ws> --item-id <id>
+fabio onelake-security show --workspace <ws> --item-id <id> --role <name>
+fabio onelake-security upsert --workspace <ws> --item-id <id> --content <json>
+fabio onelake-security delete --workspace <ws> --item-id <id> --role <name>
+```
+
+### managed-private-endpoint
+```
+fabio managed-private-endpoint list --workspace <ws>
+fabio managed-private-endpoint show --workspace <ws> --id <id>
+fabio managed-private-endpoint create --workspace <ws> --name <name> --resource-id <ARM-id> --group-id <blob|sqlServer|dfs|queue>
+fabio managed-private-endpoint delete --workspace <ws> --id <id>
+```
+
+## Tenant Administration
+
+### admin — Tenant Settings
+```
+fabio admin list-tenant-settings                               List all tenant settings (165+)
+fabio admin show-tenant-setting --name <settingName>           Show a specific tenant setting
+fabio admin update-tenant-setting --name <settingName> --content <json>   Enable/disable a setting
+fabio admin list-capacity-tenant-setting-overrides --capacity <cap-id>    List capacity overrides
+fabio admin show-capacity-tenant-setting-override --capacity <cap-id> --name <settingName>
+fabio admin update-capacity-tenant-setting-override --capacity <cap-id> --name <settingName> --content <json>
+fabio admin list-domain-tenant-setting-overrides --domain <dom-id>
+fabio admin show-domain-tenant-setting-override --domain <dom-id> --name <settingName>
+fabio admin update-domain-tenant-setting-override --domain <dom-id> --name <settingName> --content <json>
+```
+
+### admin — Workspace Management
+```
+fabio admin list-workspaces                                    List all tenant workspaces
+fabio admin show-workspace --id <ws-id>                        Show workspace (admin view)
+fabio admin list-workspace-users --id <ws-id>                  List workspace access details
+fabio admin grant-admin-access --id <ws-id>                    Grant temporary admin access
+fabio admin remove-admin-access --id <ws-id>                   Remove temporary admin access
+fabio admin restore-workspace --id <ws-id> --capacity <cap-id> [--name <restored-name>]
+fabio admin discover-git-connections                            List workspaces with git connections
+fabio admin list-network-policies                              List workspace communication policies
+```
+
+### admin — Item Management
+```
+fabio admin list-items [--workspace <ws-id>] [--type <ItemType>]   List all items tenant-wide
+fabio admin show-item --workspace <ws-id> --id <item-id>           Show item (admin view)
+fabio admin list-item-users --workspace <ws-id> --id <item-id>     List item access details
+fabio admin list-user-access --user-id <principal-id>              List all access for a user
+```
+
+### admin — Domain Management
+```
+fabio admin list-domains                                        List all domains
+fabio admin show-domain --id <dom-id>                           Show domain details
+fabio admin create-domain --name <name>                         Create a domain
+fabio admin update-domain --id <dom-id> --name <new-name>       Update domain
+fabio admin delete-domain --id <dom-id>                         Delete a domain
+fabio admin list-domain-workspaces --id <dom-id>                List workspaces in domain
+fabio admin assign-domain-workspaces --id <dom-id> --content '{"workspacesIds":["..."]}'
+fabio admin unassign-domain-workspaces --id <dom-id> --content '{"workspacesIds":["..."]}'
+fabio admin assign-domain-workspaces-by-capacities --id <dom-id> --content '{"capacitiesIds":["..."]}'
+fabio admin assign-domain-workspaces-by-principals --id <dom-id> --principal-type <User|Group|ServicePrincipal> --content '{"principals":[{"id":"...","type":"User"}]}'
+fabio admin unassign-all-domain-workspaces --id <dom-id>
+fabio admin bulk-assign-domain-roles --id <dom-id> --content '{"type":"Contributors","principals":[{"id":"...","type":"User"}]}'
+fabio admin bulk-unassign-domain-roles --id <dom-id> --content '{"type":"Contributors","principals":[{"id":"...","type":"User"}]}'
+fabio admin sync-domain-roles-to-subdomains --id <dom-id> --role <Contributor|Admin>
+```
+
+### admin — Tags
+```
+fabio admin list-tags                                           List all governance tags
+fabio admin create-tag --content '{"createTagsRequest":[{"displayName":"..."}]}'
+fabio admin update-tag --id <tag-id> --content '{"displayName":"...","description":"..."}'
+fabio admin delete-tag --id <tag-id>                            Delete a tag
+```
+
+### admin — Labels (Microsoft Purview)
+```
+fabio admin bulk-set-labels --content '{"items":[{"id":"...","type":"Report"}],"labelId":"..."}'
+fabio admin bulk-remove-labels --content '{"items":[{"id":"...","type":"Report"}]}'
+```
+
+### admin — Sharing Links
+```
+fabio admin remove-all-sharing-links --content '{"sharingLinkType":"OrgLink"}'
+fabio admin bulk-remove-sharing-links --content '{"sharingLinks":[{"itemId":"...","itemType":"Report","workspaceId":"..."}]}'
+```
+
+### admin — External Data Shares
+```
+fabio admin list-external-data-shares                           List all external data shares
+fabio admin revoke-external-data-share --workspace <ws-id> --item-id <item-id> --share-id <share-id>
+```
+
+### admin — Workloads
+```
+fabio admin list-workloads                                      List available workloads
+fabio admin list-workload-assignments                           List workload assignments
+fabio admin create-workload-assignment --content '{"type":"Tenant|Capacity|Workspace","workloadId":"..."}'
+fabio admin delete-workload-assignment --id <assignment-id>
+```
