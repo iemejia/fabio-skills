@@ -1,10 +1,14 @@
 name: Sync fabio CLI changes
 
 on:
+  repository_dispatch:
+    types: [fabio-released]
   workflow_dispatch:
-  schedule:
-    # Run daily at 8:00 AM UTC
-    - cron: '0 8 * * *'
+    inputs:
+      tag:
+        description: "fabio release tag to sync from (e.g. v0.9.1)"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -14,57 +18,90 @@ jobs:
   sync-fabio:
     runs-on: ubuntu-latest
     steps:
+      - name: Determine release tag
+        id: release-info
+        env:
+          DISPATCH_TAG: ${{ github.event.client_payload.tag }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          TAG="${DISPATCH_TAG:-$INPUT_TAG}"
+          if [ -z "$TAG" ]; then
+            # Fallback: fetch latest release tag from GitHub API
+            TAG=$(curl -s https://api.github.com/repos/iemejia/fabio/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Syncing from fabio release: $TAG"
+
       - name: Checkout fabio-skills
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Checkout fabio
+      - name: Checkout fabio at release tag
         uses: actions/checkout@v6
         with:
           repository: iemejia/fabio
           path: fabio-upstream
+          ref: ${{ steps.release-info.outputs.tag }}
           fetch-depth: 0
 
-      - name: Check for recent fabio changes
-        id: check-changes
+      - name: Gather release context
+        id: context
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release-info.outputs.tag }}
         run: |
+          # Fetch release notes from GitHub API
+          RELEASE_NOTES=$(curl -s "https://api.github.com/repos/iemejia/fabio/releases/tags/$TAG" | jq -r '.body // "No release notes available."')
+          echo "$RELEASE_NOTES" > /tmp/fabio-release-notes.md
+          echo "Release notes saved for tag: $TAG"
+
+          # Get diff between this tag and the previous tag
           cd fabio-upstream
-          # Get commits from the last 24 hours
-          SINCE=$(date -u -d '24 hours ago' '+%Y-%m-%dT%H:%M:%SZ')
-          CHANGES=$(git log --since="$SINCE" --oneline)
-          if [ -z "$CHANGES" ]; then
-            echo "No changes in the last 24 hours"
-            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          PREV_TAG=$(git tag --sort=-creatordate | grep '^v' | sed -n '2p')
+          if [ -n "$PREV_TAG" ]; then
+            echo "Comparing $PREV_TAG...$TAG"
+            git diff "$PREV_TAG"..."$TAG" > /tmp/fabio-changes.diff
+            git log "$PREV_TAG"..."$TAG" --stat > /tmp/fabio-changes-summary.txt
+            git log "$PREV_TAG"..."$TAG" --oneline > /tmp/fabio-commits.txt
           else
-            echo "Found recent changes:"
-            echo "$CHANGES"
-            echo "has_changes=true" >> "$GITHUB_OUTPUT"
-            # Save detailed diff for Copilot to analyze
-            git log --since="$SINCE" -p > /tmp/fabio-changes.diff
-            git log --since="$SINCE" --stat > /tmp/fabio-changes-summary.txt
-            # Save the current AGENTS.md for full context
-            cp AGENTS.md /tmp/fabio-agents.md
+            echo "No previous tag found, using full history"
+            git log --oneline -50 > /tmp/fabio-commits.txt
+            git diff HEAD~50 > /tmp/fabio-changes.diff || true
+            git log --stat -50 > /tmp/fabio-changes-summary.txt
           fi
 
+          # Save AGENTS.md for full context
+          cp AGENTS.md /tmp/fabio-agents.md
+
       - name: Set up Node.js
-        if: steps.check-changes.outputs.has_changes == 'true'
         uses: actions/setup-node@v4
 
       - name: Install Copilot CLI
-        if: steps.check-changes.outputs.has_changes == 'true'
         run: npm install -g @github/copilot
 
       - name: Update skill with Copilot
-        if: steps.check-changes.outputs.has_changes == 'true'
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+          TAG: ${{ steps.release-info.outputs.tag }}
         run: |
           copilot -p "$(cat .github/prompts/sync-fabio-skill.md)
 
-          ## Recent Changes Summary
+          ## Release Tag
+
+          $TAG
+
+          ## Release Notes
+
+          $(cat /tmp/fabio-release-notes.md)
+
+          ## Changes Since Previous Release
 
           $(cat /tmp/fabio-changes-summary.txt)
+
+          ## Commit Log
+
+          $(cat /tmp/fabio-commits.txt)
 
           ## fabio AGENTS.md (Full Context)
 
@@ -85,7 +122,6 @@ jobs:
             --no-ask-user
 
       - name: Check for skill changes
-        if: steps.check-changes.outputs.has_changes == 'true'
         id: skill-changes
         run: |
           if git diff --quiet; then
@@ -116,21 +152,22 @@ jobs:
         if: steps.skill-changes.outputs.has_skill_changes == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release-info.outputs.tag }}
         run: |
-          BRANCH="sync/fabio-cli-$(date +%Y%m%d)"
+          BRANCH="sync/fabio-$TAG"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
           git add fabio/
-          git commit -m "feat: sync skill with latest fabio CLI changes"
+          git commit -m "feat: sync skill with fabio $TAG"
           git push origin "$BRANCH"
 
           PR_BODY="/tmp/pr-body.md"
           if [ ! -f "$PR_BODY" ]; then
-            echo "Automated sync with iemejia/fabio CLI changes." > "$PR_BODY"
+            echo "Automated sync with iemejia/fabio release $TAG." > "$PR_BODY"
           fi
 
           gh pr create \
-            --title "feat: sync skill with fabio CLI $(date +%Y-%m-%d)" \
+            --title "feat: sync skill with fabio $TAG" \
             --body-file "$PR_BODY" \
             --label "automated,fabio-sync"

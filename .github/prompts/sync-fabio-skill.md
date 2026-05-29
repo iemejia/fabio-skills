@@ -1,6 +1,14 @@
 # Sync fabio CLI Changes to fabio-skills
 
-You are updating the `fabio-skills` repository — an Agent Skills package that teaches AI agents how to use the `fabio` CLI for Microsoft Fabric. The upstream `fabio` CLI (github.com/iemejia/fabio) has been updated. Your job is to analyze what changed and update the skill files accordingly.
+You are updating the `fabio-skills` repository — an Agent Skills package that teaches AI agents how to use the `fabio` CLI for Microsoft Fabric. A new version of the upstream `fabio` CLI (github.com/iemejia/fabio) has been released. Your job is to analyze the release and update the skill files accordingly.
+
+## Context Sources (Priority Order)
+
+1. **Release Notes** — Human-curated summary of what's new (provided below as "Release Notes")
+2. **AGENTS.md** — Canonical feature inventory with all commands, behaviors, and decisions (provided below)
+3. **Commit log** — List of commits since previous release (provided below)
+4. **Diff** — Full code diff at `/tmp/fabio-changes.diff` (load on demand for details)
+5. **Full repo** — Complete fabio source at `./fabio-upstream/` (browse for implementation details)
 
 ## Repository Structure
 
@@ -19,7 +27,7 @@ fabio-skills/
 
 ## What to Update
 
-Analyze the diff at `/tmp/fabio-changes.diff` and the full fabio repo at `./fabio-upstream/` to identify:
+Analyze the diff at `/tmp/fabio-changes.diff`, the release notes (provided inline), and the full fabio repo at `./fabio-upstream/` to identify:
 
 ### 1. New Commands → Update `fabio/references/COMMANDS.md`
 
@@ -94,14 +102,15 @@ If the fabio version has changed (check `Cargo.toml` version field):
 - Note when commands are workspace-scoped vs tenant-scoped
 - Keep descriptions procedural and actionable
 
-## How to Analyze the Diff
+## How to Analyze the Release
 
-1. **Read `/tmp/fabio-changes-summary.txt`** for an overview of what files changed
-2. **Read `/tmp/fabio-changes.diff`** for detailed code changes
-3. **Cross-reference with `./fabio-upstream/src/cli.rs`** to see the full command tree
-4. **Check `./fabio-upstream/src/commands/`** for implementation details
-5. **Check `./fabio-upstream/tests/`** for expected behaviors (tests document API contracts)
-6. **Read `./fabio-upstream/AGENTS.md`** "Progress" section for the canonical list of features
+1. **Start with the Release Notes** (provided inline) — they highlight what's new and important
+2. **Cross-reference with AGENTS.md** (provided inline) — the "Progress" section is the canonical list of all features, behaviors, and decisions
+3. **Read `/tmp/fabio-changes-summary.txt`** for an overview of what files changed since the previous release
+4. **Browse `./fabio-upstream/src/cli.rs`** to see the full command tree (all subcommands)
+5. **Check `./fabio-upstream/src/commands/`** for implementation details of new commands
+6. **Check `./fabio-upstream/tests/`** for expected behaviors (tests document API contracts)
+7. **Read `/tmp/fabio-changes.diff`** for detailed code changes (large — use selectively)
 
 ## Validation Checklist
 
