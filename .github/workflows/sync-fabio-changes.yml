@@ -1,0 +1,136 @@
+name: Sync fabio CLI changes
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run daily at 8:00 AM UTC
+    - cron: '0 8 * * *'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-fabio:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fabio-skills
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Checkout fabio
+        uses: actions/checkout@v6
+        with:
+          repository: iemejia/fabio
+          path: fabio-upstream
+          fetch-depth: 0
+
+      - name: Check for recent fabio changes
+        id: check-changes
+        run: |
+          cd fabio-upstream
+          # Get commits from the last 24 hours
+          SINCE=$(date -u -d '24 hours ago' '+%Y-%m-%dT%H:%M:%SZ')
+          CHANGES=$(git log --since="$SINCE" --oneline)
+          if [ -z "$CHANGES" ]; then
+            echo "No changes in the last 24 hours"
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Found recent changes:"
+            echo "$CHANGES"
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            # Save detailed diff for Copilot to analyze
+            git log --since="$SINCE" -p > /tmp/fabio-changes.diff
+            git log --since="$SINCE" --stat > /tmp/fabio-changes-summary.txt
+            # Save the current AGENTS.md for full context
+            cp AGENTS.md /tmp/fabio-agents.md
+          fi
+
+      - name: Set up Node.js
+        if: steps.check-changes.outputs.has_changes == 'true'
+        uses: actions/setup-node@v4
+
+      - name: Install Copilot CLI
+        if: steps.check-changes.outputs.has_changes == 'true'
+        run: npm install -g @github/copilot
+
+      - name: Update skill with Copilot
+        if: steps.check-changes.outputs.has_changes == 'true'
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+        run: |
+          copilot -p "$(cat .github/prompts/sync-fabio-skill.md)
+
+          ## Recent Changes Summary
+
+          $(cat /tmp/fabio-changes-summary.txt)
+
+          ## fabio AGENTS.md (Full Context)
+
+          $(cat /tmp/fabio-agents.md)
+
+          The full diff is available at /tmp/fabio-changes.diff and the full fabio repo is at ./fabio-upstream/." \
+            --allow-tool='shell(git:*)' \
+            --allow-tool='shell(cat:*)' \
+            --allow-tool='shell(ls:*)' \
+            --allow-tool='shell(find:*)' \
+            --allow-tool='shell(head:*)' \
+            --allow-tool='shell(tail:*)' \
+            --allow-tool='shell(grep:*)' \
+            --allow-tool='shell(wc:*)' \
+            --allow-tool=read \
+            --allow-tool=write \
+            --allow-tool=edit \
+            --no-ask-user
+
+      - name: Check for skill changes
+        if: steps.check-changes.outputs.has_changes == 'true'
+        id: skill-changes
+        run: |
+          if git diff --quiet; then
+            echo "No skill changes were made"
+            echo "has_skill_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skill changes detected"
+            echo "has_skill_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate skill structure
+        if: steps.skill-changes.outputs.has_skill_changes == 'true'
+        run: |
+          # Basic validation: SKILL.md exists and has frontmatter
+          if ! head -1 fabio/SKILL.md | grep -q "^---"; then
+            echo "ERROR: SKILL.md missing frontmatter"
+            exit 1
+          fi
+          # Check SKILL.md is under 500 lines
+          LINES=$(wc -l < fabio/SKILL.md)
+          if [ "$LINES" -gt 500 ]; then
+            echo "ERROR: SKILL.md exceeds 500 lines ($LINES lines)"
+            exit 1
+          fi
+          echo "Skill validation passed ($LINES lines)"
+
+      - name: Create pull request
+        if: steps.skill-changes.outputs.has_skill_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="sync/fabio-cli-$(date +%Y%m%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add fabio/
+          git commit -m "feat: sync skill with latest fabio CLI changes"
+          git push origin "$BRANCH"
+
+          PR_BODY="/tmp/pr-body.md"
+          if [ ! -f "$PR_BODY" ]; then
+            echo "Automated sync with iemejia/fabio CLI changes." > "$PR_BODY"
+          fi
+
+          gh pr create \
+            --title "feat: sync skill with fabio CLI $(date +%Y-%m-%d)" \
+            --body-file "$PR_BODY" \
+            --label "automated,fabio-sync"
