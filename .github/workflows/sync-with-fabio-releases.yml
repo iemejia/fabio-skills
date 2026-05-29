@@ -1,4 +1,4 @@
-name: Sync fabio CLI changes
+name: Sync with fabio releases
 
 on:
   repository_dispatch:
@@ -58,12 +58,12 @@ jobs:
 
           # Get diff between this tag and the previous tag
           cd fabio-upstream
-          PREV_TAG=$(git tag --sort=-creatordate | grep '^v' | sed -n '2p')
+          PREV_TAG=$(git tag --sort=-version:refname | grep '^v' | awk -v cur="$TAG" '$0 != cur {print; exit}')
           if [ -n "$PREV_TAG" ]; then
             echo "Comparing $PREV_TAG...$TAG"
-            git diff "$PREV_TAG"..."$TAG" > /tmp/fabio-changes.diff
-            git log "$PREV_TAG"..."$TAG" --stat > /tmp/fabio-changes-summary.txt
-            git log "$PREV_TAG"..."$TAG" --oneline > /tmp/fabio-commits.txt
+            git diff "$PREV_TAG".."$TAG" > /tmp/fabio-changes.diff
+            git log "$PREV_TAG".."$TAG" --stat > /tmp/fabio-changes-summary.txt
+            git log "$PREV_TAG".."$TAG" --oneline > /tmp/fabio-commits.txt
           else
             echo "No previous tag found, using full history"
             git log --oneline -50 > /tmp/fabio-commits.txt
@@ -80,34 +80,44 @@ jobs:
       - name: Install Copilot CLI
         run: npm install -g @github/copilot
 
+      - name: Build Copilot prompt
+        env:
+          TAG: ${{ steps.release-info.outputs.tag }}
+        run: |
+          # Assemble prompt from template + context files into a single file
+          # This avoids shell expansion issues with $ characters in AGENTS.md
+          {
+            cat .github/prompts/sync-fabio-skill.md
+            echo ""
+            echo "## Release Tag"
+            echo ""
+            echo "$TAG"
+            echo ""
+            echo "## Release Notes"
+            echo ""
+            cat /tmp/fabio-release-notes.md
+            echo ""
+            echo "## Changes Since Previous Release"
+            echo ""
+            cat /tmp/fabio-changes-summary.txt
+            echo ""
+            echo "## Commit Log"
+            echo ""
+            cat /tmp/fabio-commits.txt
+            echo ""
+            echo "## fabio AGENTS.md (Full Context)"
+            echo ""
+            cat /tmp/fabio-agents.md
+            echo ""
+            echo "The full diff is available at /tmp/fabio-changes.diff and the full fabio repo is at ./fabio-upstream/."
+          } > /tmp/copilot-prompt.md
+
       - name: Update skill with Copilot
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
-          TAG: ${{ steps.release-info.outputs.tag }}
         run: |
-          copilot -p "$(cat .github/prompts/sync-fabio-skill.md)
-
-          ## Release Tag
-
-          $TAG
-
-          ## Release Notes
-
-          $(cat /tmp/fabio-release-notes.md)
-
-          ## Changes Since Previous Release
-
-          $(cat /tmp/fabio-changes-summary.txt)
-
-          ## Commit Log
-
-          $(cat /tmp/fabio-commits.txt)
-
-          ## fabio AGENTS.md (Full Context)
-
-          $(cat /tmp/fabio-agents.md)
-
-          The full diff is available at /tmp/fabio-changes.diff and the full fabio repo is at ./fabio-upstream/." \
+          # Use stdin to pass prompt — avoids shell expansion of $WS, $LH etc. in the content
+          copilot \
             --allow-tool='shell(git:*)' \
             --allow-tool='shell(cat:*)' \
             --allow-tool='shell(ls:*)' \
@@ -119,7 +129,7 @@ jobs:
             --allow-tool=read \
             --allow-tool=write \
             --allow-tool=edit \
-            --no-ask-user
+            --no-ask-user < /tmp/copilot-prompt.md
 
       - name: Check for skill changes
         id: skill-changes
@@ -166,6 +176,10 @@ jobs:
           if [ ! -f "$PR_BODY" ]; then
             echo "Automated sync with iemejia/fabio release $TAG." > "$PR_BODY"
           fi
+
+          # Ensure labels exist
+          gh label create "automated" --color "0e8a16" --description "Automated PRs" 2>/dev/null || true
+          gh label create "fabio-sync" --color "1d76db" --description "Synced from fabio upstream" 2>/dev/null || true
 
           gh pr create \
             --title "feat: sync skill with fabio $TAG" \
