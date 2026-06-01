@@ -499,3 +499,321 @@ fabio provides 6 targeted error patterns for admin commands:
 4. **Purview labels not configured** → M365 E5 + licensing prerequisites
 5. **Feature not available** → tenant admin feature flag guidance
 6. **Sync admins not supported** → suggests `--role Contributor`
+
+## Deploy Command
+
+### Stateless Content-Hash Diffing
+Deploy uses SHA-256 content hashing over sorted `path + \x00 + payload` pairs to detect changes. No state file exists — always queries the live workspace. No `.tfstate` equivalent.
+
+### Source Directory Format
+```
+{DisplayName}.{ItemType}/
+├── .platform                    # Required: {"$schema":"...","metadata":{"type":"...","displayName":"..."},"config":{"logicalId":"..."}}
+├── definition-part.json         # Base64 payload parts (varies by item type)
+└── creationPayload.json         # Optional: merged into creation body as `creationPayload` field
+```
+
+### Workspace Resolution
+- GUID detection: 36 characters with 4 dashes → used directly as workspace ID
+- Display name: resolved via `GET /workspaces?displayName=<name>` lookup
+
+### Changeset Actions
+| Action | Behavior |
+|--------|----------|
+| `Create` | POST to create item (with definition if present) |
+| `Update` | POST updateDefinition (content hash differs) |
+| `Rename` | PATCH displayName + updateDefinition |
+| `Delete` | DELETE item (sequential, never parallel) |
+| `Skip` | Content hash matches — no action needed |
+
+### Rename Detection
+Two-pass matching algorithm:
+1. **First pass**: Match source items to deployed items by `(type, name)` pairs
+2. **Second pass**: Unmatched source items with `logicalId` in `.platform` get candidates checked via `getDefinition` on deployed items — compares `logicalId` from their `.platform` part
+
+### Logical ID Resolution
+String replacement (`String::replace`) in base64 payloads at apply time. Resolves items created earlier in the same deploy session. Example: a report referencing a semantic model created in the same batch.
+
+### Parameter Substitution
+Applied in order (each stage feeds into the next):
+1. **find_replace** — simple string replacement in payloads
+2. **key_value_replace** — structured key-value pairs
+3. **spark_pool** — Spark pool name/ID substitution
+4. **semantic_model_binding** — semantic model ID replacement in report bindings
+
+### Post-Deploy Hooks
+| Item Type | Hook Action | Notes |
+|-----------|-------------|-------|
+| SemanticModel | `POST /refreshes` | Frames Direct Lake models |
+| Environment | `POST /staging/publish` | Publishes staged changes |
+
+- Failures are **non-fatal** (reported in output, don't fail the deploy)
+- Hooks **never fire** during `--dry-run`
+- Opt-out via `--no-post-hooks`
+
+### Plan Staleness Detection
+Workspace fingerprint = SHA-256 of sorted `(id, type, name)` tuples. If fingerprint changes between plan and apply, deploy fails unless `--force` is specified.
+
+### Deploy Ordering
+42 item types in `DEPLOY_ORDER` — deployed in dependency order:
+```
+storage → compute → code → models → reactive → APIs → ML → graph → viz
+```
+
+### Concurrency
+- Default: 8 concurrent operations (semaphore-bounded `tokio::spawn`)
+- `DataPipeline`: always sequential (ordering dependencies)
+- Deletes: always sequential
+
+### Empty Definitions
+Items with no definition parts (Lakehouse, MLModel):
+- On create: omit `definition` field entirely
+- On update: skip `updateDefinition` call
+
+## Workspace API Behaviors
+
+### Folder Management
+Standard CRUD at `/workspaces/{ws}/folders`:
+- Create: `POST` with `{"displayName": "...", "parentFolderId": "<id>" | null}`
+- Move items: `POST /workspaces/{ws}/folders/{id}/move` with body:
+  ```json
+  {"targetFolderId": "<id>" | null}
+  ```
+  `null` moves to workspace root.
+
+### Tags
+- Apply: `POST /workspaces/{ws}/applyTags` with `{"tagIds": ["<uuid>", ...]}`
+- Unapply: `POST /workspaces/{ws}/unapplyTags` with `{"tagIds": ["<uuid>", ...]}`
+
+### Domain Assignment
+- Assign: `POST /workspaces/{ws}/assignToDomain` with `{"domainId": "<uuid>"}`
+- Unassign: `POST /workspaces/{ws}/unassignFromDomain`
+
+### OneLake Settings
+- `POST /workspaces/{ws}/modifyDefaultTier?defaultTier={value}`
+- **IMPORTANT**: The tier value goes as a **query parameter**, not in the request body
+- Values: `Hot`, `Cool`, `Cold`
+
+### Lifecycle Policies
+- Export: `POST /workspaces/{ws}/exportLifecyclePolicy` (returns JSON)
+- Import: `POST /workspaces/{ws}/importLifecyclePolicy` (accepts JSON body)
+
+### Network Policies
+| Policy | Endpoint |
+|--------|----------|
+| Firewall rules | `/workspaces/{ws}/networkPolicies/firewallRules` |
+| Git outbound | `/workspaces/{ws}/networkPolicies/gitOutbound` |
+| Inbound Azure resources | `/workspaces/{ws}/networkPolicies/inboundAzureResources` |
+| Outbound cloud connections | `/workspaces/{ws}/networkPolicies/outboundCloud` |
+| Outbound gateways | `/workspaces/{ws}/networkPolicies/outboundGateways` |
+
+- **OAP outbound restriction** requires F64+ capacity
+- **Inbound** works on Trial capacity
+
+### Identity Provisioning
+- `POST /workspaces/{ws}/provisionIdentity` is **LRO** (returns 202)
+- Response includes `applicationId` + `servicePrincipalId`
+
+## Item API Behaviors
+
+### Type Filter on List
+`GET /workspaces/{ws}/items?type={PascalCase}` — type value must be PascalCase (e.g., `Notebook`, `SemanticModel`, `DataPipeline`).
+
+### Copy Pattern
+1. `POST /workspaces/{ws}/{type}s/{id}/getDefinition` (LRO) — get definition parts
+2. `GET /workspaces/{ws}/{type}s/{id}` — get metadata (displayName, description)
+3. `POST /workspaces/{destWs}/items` with definition (LRO) — create in destination
+
+### Move Pattern
+Copy + DELETE source item. No native move API exists.
+
+### Bulk Operations (All LRO)
+| Operation | Endpoint |
+|-----------|----------|
+| `bulkExportDefinitions` | `POST /workspaces/{ws}/items/bulkExportDefinitions` |
+| `bulkImportDefinitions` | `POST /workspaces/{ws}/items/bulkImportDefinitions` |
+| `bulkMove` | `POST /workspaces/{ws}/items/bulkMove` |
+
+### External Data Shares
+Standard CRUD at `/workspaces/{ws}/items/{id}/externalDataShares`. Requires tenant setting `AllowExternalDataSharingSwitch` enabled.
+
+### Identity Assignment
+`POST /workspaces/{ws}/items/{id}/assignIdentity` — assigns workspace managed identity to the item.
+
+## Cross-Database Query Behaviors
+
+### Three-Part Naming Support
+| Source Endpoint | Three-Part Naming | Notes |
+|----------------|-------------------|-------|
+| Lakehouse SQL endpoint | YES | Can query other DBs in same workspace |
+| Warehouse | YES | Same TDS endpoint, sees `sys.databases` |
+| SQL Database | NO | Error 40515: "Reference to database and/or server name is not supported" |
+
+### Direction
+Cross-database querying is **one-way**:
+- Lakehouse/Warehouse → SQL Database: **works**
+- SQL Database → Lakehouse/Warehouse: **does NOT work**
+
+### Practical Pattern
+Use the **lakehouse SQL endpoint as query hub** for JOINs across item types:
+```sql
+SELECT l.col
+FROM dbo.local_table l
+JOIN SqlDb.dbo.remote_table r ON l.id = r.id
+```
+
+## Report Definition Formats
+
+### PBIR-Legacy vs PBIR
+| Aspect | PBIR-Legacy | PBIR |
+|--------|-------------|------|
+| Structure | Single `report.json` | `definition/` folder tree |
+| Data rendering | Works with `prototypeQuery` | Stores correctly but renders NO data |
+| Future | Deprecated at GA | Only supported format at GA |
+
+### definition.pbir v2.0 Schema (Recommended)
+```json
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definitionProperties/2.0.0/schema.json",
+  "version": "4.0",
+  "datasetReference": {
+    "byConnection": {
+      "connectionString": "semanticmodelid=<SEMANTIC-MODEL-UUID>"
+    }
+  }
+}
+```
+
+### PBIR-Legacy Visual Config
+Required fields for visuals that render data:
+- `visualType` — the chart/visual type
+- `projections` — field-to-role bindings
+- `dataTransforms` — metadata for rendering engine
+- `prototypeQuery` — **REQUIRED** for data to actually render
+
+### PBIR visual.json Limitation
+PBIR visuals use `query.queryState` which stores correctly but **renders NO data** in the portal. The PBIR schema does not support `prototypeQuery`.
+
+### Supported visualType Values
+`card`, `barChart`, `columnChart`, `lineChart`, `pieChart`, `donutChart`, `tableEx`, `matrix`, `map`, `scatterChart`, `slicer`, `kpi`
+
+### Projection Role Names by visualType
+| visualType | Roles |
+|------------|-------|
+| `card` | `Values` |
+| `barChart` / `columnChart` | `Category` + `Y` |
+| `lineChart` | `Category` + `Y` (+ optional `Series`) |
+| `pieChart` / `donutChart` | `Category` + `Y` |
+| `tableEx` | `Values` (array) |
+| `matrix` | `Rows` + `Columns` + `Values` |
+| `map` | `Category` + `Size` + `Color` |
+| `scatterChart` | `Category` + `X` + `Y` + `Size` |
+| `slicer` | `Values` |
+| `kpi` | `Indicator` + `TrendAxis` + `Goal` |
+
+### updateDefinition Rule
+ALWAYS include `definition.pbir` part, even if only updating `report.json` or visual files.
+
+## Eventstream Behaviors
+
+### Definition Format
+Two files:
+- `eventstream.json` — topology (sources, destinations, streams, operators, compatibilityLevel)
+- `eventstreamProperties.json` — retention (`retentionTimeInDays`: 1-90) and throughput (`eventThroughputLevel`: Low/Medium/High)
+
+### Source Types
+`CustomEndpoint`, `AzureEventHub`, `AzureIoTHub`, `SampleData`, `AmazonKinesis`, `ApacheKafka`, `ConfluentCloud`, `GooglePubSub`, CDC types (`AzureSQLDBCDC`, `MySQLCDC`, `PostgreSQLCDC`), Fabric events (`FabricWorkspaceItemEvents`, `FabricJobEvents`, `FabricOneLakeEvents`)
+
+### Destination Types
+`Eventhouse`, `Lakehouse`, `CustomEndpoint`, `Activator`
+
+### Eventhouse Destination Critical Rule
+The `itemId` field must be the **KQL Database item ID** (NOT the Eventhouse ID). Using the Eventhouse ID causes: "Unable to extract cluster URL from the Eventhouse KQL database item ID".
+
+### Two Ingestion Modes
+| Mode | Table Creation | Requirements |
+|------|---------------|--------------|
+| `ProcessedIngestion` | Auto-creates table (with system columns) | `inputSerialization` in properties |
+| `DirectIngestion` | Requires pre-created table + mapping | `connectionName` + `mappingRuleName` |
+
+### Graph-Like Topology
+Nodes reference each other by `name` via `inputNodes` arrays. Structure: source → stream → destination/operator. Names must be unique across all node types.
+
+### No Individual Source/Destination CRUD
+Sources and destinations can only be created/deleted via `update-definition` (full definition replacement). Individual `GET .../sources/{id}` and `GET .../destinations/{id}` are read-only.
+
+### add-source / add-destination Helpers
+High-level commands that:
+1. Fetch current definition
+2. Merge in the new node
+3. Auto-create default streams
+4. Push updated definition via `updateDefinition`
+
+## Data Agent Behaviors (Expanded)
+
+### Data Source Configuration
+Configured via `datasource.json` parts in the definition. Single-part updates are **silently dropped** — must include ALL parts together:
+- `data_agent.json` + `stage_config.json` + `datasource.json`
+
+### Path Convention
+```
+Files/Config/{stage}/{type}-{DisplayName}/datasource.json
+```
+Where:
+- `stage`: `draft` or `published`
+- `type`: full type value (e.g., `lakehouse-tables`, `data-warehouse`, `kusto`, `graph`)
+
+### Data Source Type Enum
+`unknown`, `lakehouse_tables`, `lakehouse`, `data_warehouse`, `kusto`, `semantic_model`, `graph`, `mirrored_database`, `mirrored_azure_databricks`
+
+### Full Definition Required
+Single-part `updateDefinition` with only the datasource file is silently dropped (202 accepted but not persisted). Must include ALL definition parts together for persistence.
+
+## Environment API
+
+### Staging/Publish Workflow
+Environments use a two-stage model:
+1. Make changes (libraries, Spark settings) — stored in **staging**
+2. `POST /workspaces/{ws}/environments/{id}/staging/publish` — promotes to live
+
+### Library Management
+- Libraries exist in both **published** (active) and **staging** (pending) states
+- Export/import available for both states
+- Changes to libraries require publish to take effect
+
+### Publish Behavior
+- Publish is **fire-and-forget** (NOT LRO — returns immediately)
+- Cancel via `POST /workspaces/{ws}/environments/{id}/staging/cancelPublish`
+- Check publish state via `GET /workspaces/{ws}/environments/{id}`
+
+## Mirrored Database/Catalog Behaviors
+
+### Mirrored Catalog
+- Requires **tenant feature flag** to be enabled
+- Without it, mutations fail (list may still work)
+
+### Mirrored Databricks Catalog
+- Creates **without** external connection (unlike other mirrored types)
+- Uses `discover-catalogs` to enumerate available Databricks catalogs
+
+### Naming Constraints
+- `MirroredAzureDatabricksCatalog`: **no hyphens** allowed in display name
+- Standard `MirroredDatabase`: standard naming rules apply
+
+## Apache Airflow Job Behaviors
+
+### File Operations
+- All file endpoints require `?beta=true` query parameter
+- Without it, returns 404 or unsupported error
+
+### File Upload
+- Content-Type: `text/plain` (JSON body is rejected)
+- Files are DAGs, not Fabric definitions
+
+### Environment Lifecycle States
+```
+Initial → Starting → Started → Stopping → Stopped
+```
+- Start: `POST /workspaces/{ws}/apacheAirflowJobs/{id}/startEnvironment`
+- Stop: `POST /workspaces/{ws}/apacheAirflowJobs/{id}/stopEnvironment`
+- Get state: `GET /workspaces/{ws}/apacheAirflowJobs/{id}/getEnvironment`

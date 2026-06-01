@@ -45,7 +45,21 @@ fabio workspace export-lifecycle-policy --id <id>
 fabio workspace import-lifecycle-policy --id <id> --file <path>
 fabio workspace reset-shortcut-cache --id <id>
 fabio workspace get-network-policy --id <id>
-fabio workspace set-network-policy --id <id> ...
+fabio workspace set-network-policy --id <id> [--file <path>|--content <json>]
+fabio workspace get-firewall-rules --id <id>
+fabio workspace set-firewall-rules --id <id> [--file <path>|--content <json>]
+fabio workspace get-git-outbound-policy --id <id>
+fabio workspace set-git-outbound-policy --id <id> [--file <path>|--content <json>]
+fabio workspace get-inbound-azure-resource-rules --id <id>
+fabio workspace set-inbound-azure-resource-rules --id <id> [--file <path>|--content <json>]
+fabio workspace get-outbound-cloud-connection-rules --id <id>
+fabio workspace set-outbound-cloud-connection-rules --id <id> [--file <path>|--content <json>]
+fabio workspace get-outbound-gateway-rules --id <id>
+fabio workspace set-outbound-gateway-rules --id <id> [--file <path>|--content <json>]
+fabio workspace get-settings --id <id>
+fabio workspace update-settings --id <id> [--file <path>|--content <json>]
+fabio workspace get-dataset-storage-format --id <id>
+fabio workspace set-dataset-storage-format --id <id> --format <Large|Small>
 ```
 
 ### item (generic item operations)
@@ -242,6 +256,26 @@ fabio data-agent update-definition --workspace <ws> --id <id> --file <path>
 fabio data-agent publish --workspace <ws> --id <id>
 ```
 
+### ontology
+```
+fabio ontology list --workspace <ws>
+fabio ontology show --workspace <ws> --id <id>
+fabio ontology create --workspace <ws> --name <name>
+fabio ontology update --workspace <ws> --id <id> --name <new-name>
+fabio ontology delete --workspace <ws> --id <id>
+fabio ontology get-definition --workspace <ws> --id <id> [--decode] [--dir <path>]
+fabio ontology update-definition --workspace <ws> --id <id> --file <path> [--dir <path>]
+```
+
+### warehouse-snapshot
+```
+fabio warehouse-snapshot list --workspace <ws>
+fabio warehouse-snapshot show --workspace <ws> --id <id>
+fabio warehouse-snapshot create --workspace <ws> --name <name> --warehouse-id <wh-id>
+fabio warehouse-snapshot update --workspace <ws> --id <id> --name <new-name>
+fabio warehouse-snapshot delete --workspace <ws> --id <id>
+```
+
 ## Analytics & Reporting
 
 ### semantic-model
@@ -269,6 +303,40 @@ fabio report delete --workspace <ws> --id <id>
 fabio report get-definition --workspace <ws> --id <id>
 fabio report update-definition --workspace <ws> --id <id> --file <path> [--report-json <path>]
 fabio report publish-to-web --workspace <ws> --id <id>
+```
+
+## Data Science
+
+### operations-agent
+```
+fabio operations-agent list --workspace <ws>
+fabio operations-agent show --workspace <ws> --id <id>
+fabio operations-agent create --workspace <ws> --name <name>
+fabio operations-agent update --workspace <ws> --id <id> --name <new-name>
+fabio operations-agent delete --workspace <ws> --id <id>
+fabio operations-agent get-definition --workspace <ws> --id <id>
+fabio operations-agent update-definition --workspace <ws> --id <id> --file <path>
+```
+
+### apache-airflow-job
+```
+fabio apache-airflow-job list --workspace <ws>
+fabio apache-airflow-job show --workspace <ws> --id <id>
+fabio apache-airflow-job create --workspace <ws> --name <name>
+fabio apache-airflow-job update --workspace <ws> --id <id> --name <new-name>
+fabio apache-airflow-job delete --workspace <ws> --id <id>
+fabio apache-airflow-job get-definition --workspace <ws> --id <id>
+fabio apache-airflow-job update-definition --workspace <ws> --id <id> --file <path>
+fabio apache-airflow-job start-environment --workspace <ws> --id <id>
+fabio apache-airflow-job stop-environment --workspace <ws> --id <id>
+fabio apache-airflow-job get-environment --workspace <ws> --id <id>
+fabio apache-airflow-job list-files --workspace <ws> --id <id>
+fabio apache-airflow-job get-file --workspace <ws> --id <id> --path <file-path>
+fabio apache-airflow-job upload-file --workspace <ws> --id <id> --path <file-path> --content <text>
+fabio apache-airflow-job delete-file --workspace <ws> --id <id> --path <file-path>
+fabio apache-airflow-job get-compute --workspace <ws> --id <id>
+fabio apache-airflow-job get-workspace-settings --workspace <ws> --id <id>
+fabio apache-airflow-job deploy-requirements --workspace <ws> --id <id> --file <path>
 ```
 
 ## Real-Time Intelligence
@@ -349,6 +417,167 @@ fabio reflex update-definition --workspace <ws> --id <id> --file <path>
 fabio reflex configure-kql-source --workspace <ws> --id <id> ...
 ```
 
+### kql-dashboard
+```
+fabio kql-dashboard list --workspace <ws>
+fabio kql-dashboard show --workspace <ws> --id <id>
+fabio kql-dashboard create --workspace <ws> --name <name>
+fabio kql-dashboard update --workspace <ws> --id <id> --name <new-name>
+fabio kql-dashboard delete --workspace <ws> --id <id>
+fabio kql-dashboard get-definition --workspace <ws> --id <id>
+fabio kql-dashboard update-definition --workspace <ws> --id <id> --file <path>
+```
+
+### anomaly-detector
+```
+fabio anomaly-detector list --workspace <ws>
+fabio anomaly-detector show --workspace <ws> --id <id>
+fabio anomaly-detector create --workspace <ws> --name <name>
+fabio anomaly-detector update --workspace <ws> --id <id> --name <new-name>
+fabio anomaly-detector delete --workspace <ws> --id <id>
+fabio anomaly-detector get-definition --workspace <ws> --id <id>
+fabio anomaly-detector update-definition --workspace <ws> --id <id> --file <path>
+```
+
+### event-schema-set
+```
+fabio event-schema-set list --workspace <ws>
+fabio event-schema-set show --workspace <ws> --id <id>
+fabio event-schema-set create --workspace <ws> --name <name>
+fabio event-schema-set update --workspace <ws> --id <id> --name <new-name>
+fabio event-schema-set delete --workspace <ws> --id <id>
+fabio event-schema-set get-definition --workspace <ws> --id <id>
+fabio event-schema-set update-definition --workspace <ws> --id <id> --file <path>
+```
+
+## Graph & Digital Twins
+
+### graph-model
+```
+fabio graph-model list --workspace <ws>
+fabio graph-model show --workspace <ws> --id <id>
+fabio graph-model create --workspace <ws> --name <name> [--ontology <ontology-id>]
+fabio graph-model update --workspace <ws> --id <id> --name <new-name>
+fabio graph-model delete --workspace <ws> --id <id>
+fabio graph-model get-definition --workspace <ws> --id <id>
+fabio graph-model update-definition --workspace <ws> --id <id> --file <path>
+fabio graph-model refresh-graph --workspace <ws> --id <id>
+fabio graph-model execute-query --workspace <ws> --id <id> --query <"KQL">
+fabio graph-model get-queryable-graph-type --workspace <ws> --id <id>
+```
+
+### graph-query-set
+```
+fabio graph-query-set list --workspace <ws>
+fabio graph-query-set show --workspace <ws> --id <id>
+fabio graph-query-set create --workspace <ws> --name <name>
+fabio graph-query-set update --workspace <ws> --id <id> --name <new-name>
+fabio graph-query-set delete --workspace <ws> --id <id>
+fabio graph-query-set get-definition --workspace <ws> --id <id>
+fabio graph-query-set update-definition --workspace <ws> --id <id> --file <path>
+```
+
+### digital-twin-builder
+```
+fabio digital-twin-builder list --workspace <ws>
+fabio digital-twin-builder show --workspace <ws> --id <id>
+fabio digital-twin-builder create --workspace <ws> --name <name>
+fabio digital-twin-builder update --workspace <ws> --id <id> --name <new-name>
+fabio digital-twin-builder delete --workspace <ws> --id <id>
+fabio digital-twin-builder get-definition --workspace <ws> --id <id>
+fabio digital-twin-builder update-definition --workspace <ws> --id <id> --file <path>
+```
+
+### digital-twin-builder-flow
+```
+fabio digital-twin-builder-flow list --workspace <ws>
+fabio digital-twin-builder-flow show --workspace <ws> --id <id>
+fabio digital-twin-builder-flow create --workspace <ws> --name <name> --dtb-id <digital-twin-builder-id>
+fabio digital-twin-builder-flow update --workspace <ws> --id <id> --name <new-name>
+fabio digital-twin-builder-flow delete --workspace <ws> --id <id>
+fabio digital-twin-builder-flow get-definition --workspace <ws> --id <id>
+fabio digital-twin-builder-flow update-definition --workspace <ws> --id <id> --file <path>
+```
+
+### map
+```
+fabio map list --workspace <ws>
+fabio map show --workspace <ws> --id <id>
+fabio map create --workspace <ws> --name <name>
+fabio map update --workspace <ws> --id <id> --name <new-name>
+fabio map delete --workspace <ws> --id <id>
+fabio map get-definition --workspace <ws> --id <id>
+fabio map update-definition --workspace <ws> --id <id> --file <path>
+```
+
+## Mirroring
+
+### mirrored-catalog
+```
+fabio mirrored-catalog list --workspace <ws>
+fabio mirrored-catalog show --workspace <ws> --id <id>
+fabio mirrored-catalog create --workspace <ws> --name <name>
+fabio mirrored-catalog update --workspace <ws> --id <id> --name <new-name>
+fabio mirrored-catalog delete --workspace <ws> --id <id>
+fabio mirrored-catalog get-definition --workspace <ws> --id <id>
+fabio mirrored-catalog update-definition --workspace <ws> --id <id> --file <path>
+fabio mirrored-catalog refresh-metadata --workspace <ws> --id <id>
+fabio mirrored-catalog mirroring-status --workspace <ws> --id <id>
+fabio mirrored-catalog tables-status --workspace <ws> --id <id>
+```
+
+### mirrored-databricks-catalog
+```
+fabio mirrored-databricks-catalog list --workspace <ws>
+fabio mirrored-databricks-catalog show --workspace <ws> --id <id>
+fabio mirrored-databricks-catalog create --workspace <ws> --name <name>
+fabio mirrored-databricks-catalog update --workspace <ws> --id <id> --name <new-name>
+fabio mirrored-databricks-catalog delete --workspace <ws> --id <id>
+fabio mirrored-databricks-catalog get-definition --workspace <ws> --id <id>
+fabio mirrored-databricks-catalog update-definition --workspace <ws> --id <id> --file <path>
+fabio mirrored-databricks-catalog discover-catalogs --workspace <ws> --id <id>
+fabio mirrored-databricks-catalog refresh-metadata --workspace <ws> --id <id>
+fabio mirrored-databricks-catalog mirroring-status --workspace <ws> --id <id>
+```
+
+### mirrored-warehouse
+```
+fabio mirrored-warehouse list --workspace <ws>
+```
+
+### cosmos-db-database
+```
+fabio cosmos-db-database list --workspace <ws>
+fabio cosmos-db-database show --workspace <ws> --id <id>
+fabio cosmos-db-database create --workspace <ws> --name <name>
+fabio cosmos-db-database update --workspace <ws> --id <id> --name <new-name>
+fabio cosmos-db-database delete --workspace <ws> --id <id>
+fabio cosmos-db-database get-definition --workspace <ws> --id <id>
+fabio cosmos-db-database update-definition --workspace <ws> --id <id> --file <path>
+```
+
+### snowflake-database
+```
+fabio snowflake-database list --workspace <ws>
+fabio snowflake-database show --workspace <ws> --id <id>
+fabio snowflake-database create --workspace <ws> --name <name> --connection <json>
+fabio snowflake-database update --workspace <ws> --id <id> --name <new-name>
+fabio snowflake-database delete --workspace <ws> --id <id>
+fabio snowflake-database get-definition --workspace <ws> --id <id>
+fabio snowflake-database update-definition --workspace <ws> --id <id> --file <path>
+```
+
+### mounted-data-factory
+```
+fabio mounted-data-factory list --workspace <ws>
+fabio mounted-data-factory show --workspace <ws> --id <id>
+fabio mounted-data-factory create --workspace <ws> --name <name> --resource-id <ARM-resource-id>
+fabio mounted-data-factory update --workspace <ws> --id <id> --name <new-name>
+fabio mounted-data-factory delete --workspace <ws> --id <id>
+fabio mounted-data-factory get-definition --workspace <ws> --id <id>
+fabio mounted-data-factory update-definition --workspace <ws> --id <id> --file <path>
+```
+
 ## Integration & DevOps
 
 ### git
@@ -416,6 +645,52 @@ fabio job-scheduler update-schedule --workspace <ws> --item-id <id> --schedule-i
 fabio job-scheduler delete-schedule --workspace <ws> --item-id <id> --schedule-id <sid>
 ```
 
+### domain
+```
+fabio domain list
+fabio domain show --id <id>
+fabio domain create --name <name>
+fabio domain update --id <id> --name <new-name>
+fabio domain delete --id <id>
+fabio domain list-workspaces --id <id>
+fabio domain assign-workspaces --id <id> --content <json>
+fabio domain unassign-workspaces --id <id> --content <json>
+fabio domain assign-by-capacity --id <id> --content <json>
+fabio domain assign-by-principal --id <id> --principal-type <type> --content <json>
+```
+
+### variable-library
+```
+fabio variable-library list --workspace <ws>
+fabio variable-library show --workspace <ws> --id <id>
+fabio variable-library create --workspace <ws> --name <name>
+fabio variable-library update --workspace <ws> --id <id> --name <new-name>
+fabio variable-library delete --workspace <ws> --id <id>
+fabio variable-library get-definition --workspace <ws> --id <id>
+fabio variable-library update-definition --workspace <ws> --id <id> --file <path>
+```
+
+### user-data-function
+```
+fabio user-data-function list --workspace <ws>
+fabio user-data-function show --workspace <ws> --id <id>
+fabio user-data-function create --workspace <ws> --name <name>
+fabio user-data-function update --workspace <ws> --id <id> --name <new-name>
+fabio user-data-function delete --workspace <ws> --id <id>
+fabio user-data-function get-definition --workspace <ws> --id <id>
+fabio user-data-function update-definition --workspace <ws> --id <id> --file <path>
+```
+
+## CI/CD Deployment
+
+### deploy
+```
+fabio deploy plan --source <DIR> --workspace <ID|NAME> [--item-types <T1,T2>] [--delete-orphans] [--allow-unresolved] [--force-all] [--out <FILE>] [--parameters <FILE> --env <NAME>]
+fabio deploy apply --source <DIR> --workspace <ID|NAME> [--plan <FILE>] [--item-types <T1,T2>] [--delete-orphans] [--allow-unresolved] [--fail-fast] [--force] [--force-all] [--concurrency <N>] [--parameters <FILE> --env <NAME>] [--no-post-hooks]
+fabio deploy export --workspace <ID|NAME> --dir <DIR> [--item-types <T1,T2>] [--overwrite] [--dry-run]
+fabio deploy init-params --source <DIR> [--compare <DIR>] [--source-env <NAME>] [--compare-env <NAME>] [--out <FILE>]
+```
+
 ## Configuration & Tooling
 
 ### profile
@@ -443,6 +718,12 @@ fabio agent-context    # Machine-readable command schema for AI agents
 ```
 fabio operation get-state --id <operation-id>
 fabio operation get-result --id <operation-id>
+```
+
+### feedback
+```
+fabio feedback send --message <text>
+fabio feedback list
 ```
 
 ## Security & Networking

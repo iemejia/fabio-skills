@@ -618,3 +618,198 @@ fabio gateway list-role-assignments --id $GW -o table
 # Delete gateway
 fabio gateway delete --id $GW
 ```
+
+## Deploy CI/CD (Stateless Workspace Deployment)
+
+### Export → Modify → Deploy Pattern
+```bash
+# Export current workspace state to disk
+fabio deploy export --workspace $WS --dir ./fabric-export --overwrite
+
+# Preview what would change (plan)
+fabio deploy plan --source ./fabric-export --workspace $WS_TARGET
+
+# Apply changes (create/update/rename items to match source)
+fabio deploy apply --source ./fabric-export --workspace $WS_TARGET
+
+# Apply with dry-run to preview without executing
+fabio deploy apply --source ./fabric-export --workspace $WS_TARGET --dry-run
+```
+
+### Multi-Environment Deployment with Parameters
+```bash
+# Generate parameters.json from scanning GUIDs in definitions
+fabio deploy init-params --source ./fabric-export --out parameters.json
+
+# Generate by diffing two environments
+fabio deploy init-params --source ./dev-export --compare ./prod-export \
+  --source-env dev --compare-env prod --out parameters.json
+
+# Deploy to dev
+fabio deploy apply --source ./fabric-export --workspace "dev-workspace" \
+  --parameters parameters.json --env dev
+
+# Deploy to prod
+fabio deploy apply --source ./fabric-export --workspace "prod-workspace" \
+  --parameters parameters.json --env prod
+```
+
+### Plan File for Review Before Apply
+```bash
+# Save plan to file for review
+fabio deploy plan --source ./fabric-export --workspace $WS --out plan.json
+
+# Review the plan
+cat plan.json | jq '.data.summary'
+
+# Apply the saved plan (verifies workspace hasn't changed)
+fabio deploy apply --plan plan.json
+
+# Force apply even if workspace changed
+fabio deploy apply --plan plan.json --force
+```
+
+### Advanced Deploy Options
+```bash
+# Deploy only specific item types
+fabio deploy apply --source ./fabric-export --workspace $WS \
+  --item-types Notebook,DataPipeline
+
+# Delete items in workspace not in source
+fabio deploy apply --source ./fabric-export --workspace $WS --delete-orphans
+
+# Increase concurrency for large workspaces
+fabio deploy apply --source ./fabric-export --workspace $WS --concurrency 16
+
+# Skip post-deploy hooks (no auto-refresh semantic models)
+fabio deploy apply --source ./fabric-export --workspace $WS --no-post-hooks
+
+# Deploy using workspace name instead of ID
+fabio deploy apply --source ./fabric-export --workspace "My Workspace Name"
+```
+
+## Data Agent (AI-Powered Q&A)
+
+### Create and Configure Data Agent
+```bash
+# Create data agent
+DA=$(fabio data-agent create --workspace $WS --name "SalesAssistant" -q id -o plain)
+
+# Configure AI instructions via definition
+fabio data-agent update-definition --workspace $WS --id $DA --file data-agent-config/
+
+# Query the data agent (chat interface)
+fabio data-agent query --workspace $WS --id $DA --message "What were total sales last quarter?"
+
+# Publish the agent (makes it available via URL)
+fabio data-agent publish --workspace $WS --id $DA
+```
+
+## Ontology & Graph Model
+
+### Create Ontology with Entity Types and Data Bindings
+```bash
+# Create ontology
+ONT=$(fabio ontology create --workspace $WS --name "EquipmentOntology" -q id -o plain)
+
+# Update definition with entity types, relationship types, data bindings
+fabio ontology update-definition --workspace $WS --id $ONT --dir ./ontology-definition/
+
+# Get definition (with readable decoded output)
+fabio ontology get-definition --workspace $WS --id $ONT --decode
+
+# Create graph model linked to ontology
+GM=$(fabio graph-model create --workspace $WS --name "EquipmentGraph" --ontology $ONT -q id -o plain)
+
+# Refresh graph (requires portal initialization first)
+fabio graph-model refresh-graph --workspace $WS --id $GM
+
+# Execute KQL query on loaded graph
+fabio graph-model execute-query --workspace $WS --id $GM \
+  --query "nodes() | where type == 'Equipment' | take 10"
+```
+
+## Workspace Networking & Security
+
+### Configure Firewall Rules
+```bash
+# Get current network policy
+fabio workspace get-network-policy --id $WS
+
+# Set firewall rules (replaces all existing rules)
+fabio workspace set-network-policy --id $WS --type firewall \
+  --content '{"rules":[{"displayName":"Office","value":"10.0.0.0/24"},{"displayName":"VPN","value":"192.168.1.0/24"}]}'
+
+# Configure git outbound policy
+fabio workspace set-network-policy --id $WS --type git-outbound \
+  --content '{"defaultAction":"Deny","rules":[]}'
+```
+
+### OneLake Storage Configuration
+```bash
+# View OneLake settings (tier, diagnostics, immutability)
+fabio workspace get-onelake-settings --id $WS
+
+# Set default storage tier
+fabio workspace modify-default-tier --id $WS --tier Cold
+
+# Export lifecycle policy
+fabio workspace export-lifecycle-policy --id $WS > lifecycle.json
+
+# Import lifecycle policy
+fabio workspace import-lifecycle-policy --id $WS --file lifecycle.json
+```
+
+## Apache Airflow Job
+
+### Manage Airflow Environment
+```bash
+# Create Airflow job
+AF=$(fabio apache-airflow-job create --workspace $WS --name "ETLOrchestrator" -q id -o plain)
+
+# Start the Airflow environment
+fabio apache-airflow-job start-environment --workspace $WS --id $AF
+
+# Check environment status
+fabio apache-airflow-job get-environment --workspace $WS --id $AF
+
+# Upload a DAG file
+fabio apache-airflow-job upload-file --workspace $WS --id $AF \
+  --path "dags/etl_pipeline.py" --content "$(cat my_dag.py)"
+
+# List files in the Airflow workspace
+fabio apache-airflow-job list-files --workspace $WS --id $AF
+
+# Deploy requirements
+fabio apache-airflow-job deploy-requirements --workspace $WS --id $AF --file requirements.txt
+
+# Stop the environment when done
+fabio apache-airflow-job stop-environment --workspace $WS --id $AF
+```
+
+## Warehouse Snapshots & Restore
+
+### Manage Restore Points
+```bash
+# List restore points
+fabio warehouse list-restore-points --workspace $WS --id $WH
+
+# Create a restore point before migration
+fabio warehouse create-restore-point --workspace $WS --id $WH --name "pre-migration-backup"
+
+# Restore warehouse to a point
+fabio warehouse restore-to-point --workspace $WS --id $WH --restore-point-id $RP_ID
+
+# Delete old restore point
+fabio warehouse delete-restore-point --workspace $WS --id $WH --restore-point-id $RP_ID
+```
+
+### Warehouse Audit Settings
+```bash
+# Get audit settings
+fabio warehouse get-audit-settings --workspace $WS --id $WH
+
+# Update audit settings
+fabio warehouse update-audit-settings --workspace $WS --id $WH \
+  --content '{"state":"Enabled","retentionDays":90,"auditActionsAndGroups":["SUCCESSFUL_DATABASE_AUTHENTICATION_GROUP","BATCH_COMPLETED_GROUP"]}'
+```

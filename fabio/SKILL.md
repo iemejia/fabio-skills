@@ -1,11 +1,11 @@
 ---
 name: fabio
-description: "Manage Microsoft Fabric artifacts and data using the fabio CLI - an agent-first command-line tool with structured JSON output, composable piping, and machine-readable errors. Use when working with Fabric workspaces, lakehouses, warehouses, notebooks, eventhouses, semantic models, reports, data pipelines, KQL databases, eventstreams, or any Fabric REST API resource. Covers CRUD operations, file upload/download, SQL/DAX/KQL queries, Git integration, deployment pipelines, and administration."
+description: "Manage Microsoft Fabric artifacts and data using the fabio CLI - an agent-first command-line tool with 661 subcommands across 66 groups, structured JSON output, composable piping, and machine-readable errors. Use when working with Fabric workspaces, lakehouses, warehouses, notebooks, eventhouses, semantic models, reports, data pipelines, KQL databases, eventstreams, deploy CI/CD, or any Fabric REST API resource. Covers CRUD operations, file upload/download, SQL/DAX/KQL queries, Git integration, deployment pipelines, CI/CD deploy (plan/apply/export), and administration."
 license: Apache-2.0
 compatibility: "Requires fabio binary (Linux/macOS/Windows x64/arm64). Authentication via `fabio auth login` (uses same Microsoft Identity platform as Azure CLI). Strongly recommended companions: az (Azure CLI) for supplementary Azure operations, gh (GitHub CLI) for release downloads. Network access to api.fabric.microsoft.com and onelake.dfs.fabric.microsoft.com required."
 metadata:
   author: iemejia
-  version: "0.9.0"
+  version: "0.10.0"
   repository: https://github.com/iemejia/fabio
 ---
 
@@ -13,7 +13,7 @@ metadata:
 
 ## Overview
 
-`fabio` is a CLI designed for AI agents first, humans second. It manages the entire Microsoft Fabric platform from the command line with structured JSON output, composable stdin/stdout piping, machine-readable error codes, and non-interactive operation.
+`fabio` is a CLI designed for AI agents first, humans second. It manages the entire Microsoft Fabric platform (661 subcommands across 66 groups) from the command line with structured JSON output, composable stdin/stdout piping, machine-readable error codes, and non-interactive operation.
 
 ## Installation
 
@@ -189,10 +189,12 @@ These are essential for correct operation. See [references/API-BEHAVIORS.md](ref
 6. **Definition operations are LRO**: Both `getDefinition` and `updateDefinition` use 202 + Location header polling.
 7. **Notebook source must be array of strings**: The `.ipynb` format requires `source: ["line1\n", "line2\n"]`, not a single string.
 8. **SQL Database needs F4+ capacity**: F2 fails with error 18456 State 240 for TDS connections.
+9. **Report visuals require PBIR-Legacy with prototypeQuery**: PBIR format cannot render data programmatically. Use `report.json` with `prototypeQuery` in each visual's config.
+10. **Deploy uses content-hash diffing**: SHA-256 of sorted definition parts; no state file; always queries live workspace.
 
 ## Command Groups
 
-fabio has 37+ command groups covering the full Fabric API surface. See [references/COMMANDS.md](references/COMMANDS.md) for the complete reference.
+fabio has 66 command groups with 661 subcommands covering the full Fabric API surface. See [references/COMMANDS.md](references/COMMANDS.md) for the complete reference.
 
 **Core**: auth, workspace, item, lakehouse, capacity, catalog
 **Data & Compute**: notebook, warehouse, sql-database, sql-endpoint, data-pipeline, copy-job, dataflow, environment, data-agent, ontology
@@ -202,9 +204,42 @@ fabio has 37+ command groups covering the full Fabric API surface. See [referenc
 **Graph & Digital Twins**: graphql-api, graph-model, graph-query-set, digital-twin-builder, digital-twin-builder-flow, map
 **Mirroring**: mirrored-database, mirrored-catalog, mirrored-databricks-catalog, mirrored-warehouse, cosmos-db-database, snowflake-database, mounted-data-factory
 **Integration**: git, connection, deployment-pipeline, domain, job-scheduler, variable-library, user-data-function
+**CI/CD**: deploy (plan, apply, export, init-params — stateless content-hash diffing, parameter substitution, rename detection, post-deploy hooks)
 **Security**: onelake-security, managed-private-endpoint, gateway
-**Admin**: admin (50 subcommands for tenant administration — tenant settings, workspaces, items, users, domains, tags, labels, sharing links, external data shares, workloads)
+**Admin**: admin (49 subcommands for tenant administration — tenant settings, workspaces, items, users, domains, tags, labels, sharing links, external data shares, workloads)
 **Tooling**: profile, jobs, feedback, agent-context, operation
+
+## CI/CD Deployment (fabio deploy)
+
+A stateless CI/CD engine that deploys Fabric items via content-hash diffing (no state file):
+
+```bash
+# Export current workspace state to disk
+fabio deploy export --workspace $WS --dir ./fabric-items --overwrite
+
+# Plan changes (compare source directory against live workspace)
+fabio deploy plan --source ./fabric-items --workspace $WS
+
+# Apply changes (create/update/rename items to match source)
+fabio deploy apply --source ./fabric-items --workspace $WS
+
+# Generate parameters.json for multi-environment deploys
+fabio deploy init-params --source ./fabric-items --out parameters.json
+
+# Deploy with environment-specific parameters
+fabio deploy apply --source ./fabric-items --workspace $WS_PROD \
+  --parameters parameters.json --env prod
+```
+
+Key behaviors:
+- **Stateless**: Always queries live workspace (no `.tfstate` equivalent)
+- **Content-hash diffing**: SHA-256 of sorted (path, payload) pairs detects actual changes
+- **Rename detection**: Two-pass matching by (type, name) then by logicalId
+- **Logical ID resolution**: Items referencing each other by logicalId are resolved at apply time
+- **Parallel execution**: Bounded concurrency (default 8) per type batch with rate-limit retry
+- **42 item types in dependency order**: Storage → compute → code → models → reactive → APIs
+- **Post-deploy hooks**: SemanticModel → refresh, Environment → publish (opt-out via `--no-post-hooks`)
+- **Parameter substitution**: find_replace, key_value_replace, spark_pool, semantic_model_binding
 
 ## Composability Patterns
 
@@ -226,10 +261,12 @@ fabio lakehouse create --workspace $WS --name "NewLake" | \
 
 ## Throttling Awareness
 
-- Prefer bulk/batch APIs over repeated individual calls
+- Prefer bulk/batch APIs over repeated individual calls (e.g., `item bulk-create`, `item bulk-delete`, workspace role batch-assign, domain batch-assign)
+- Prefer list APIs over repeated single-resource requests (single list call + client-side filter rather than N individual show calls)
 - Use `--all` for paginated lists instead of manual loop with `--continuation-token`
 - The CLI handles rate-limit retry automatically for parallel operations
 - Spark cold start on small capacity: 2-5 minutes for first notebook run
+- Deploy uses bounded concurrency (default 8) with automatic rate-limit retry
 
 ## Key URLs
 
