@@ -31,6 +31,18 @@ Critical API behaviors that agents must know for correct operation. These are ba
 | SQL (TDS) queries | SQL-scoped AAD token via `require_sql_auth()` |
 | Power BI REST API | `https://analysis.windows.net/powerbi/api/.default` |
 
+### Fabio CLI Entra ID App Registration (v0.13.0+)
+
+Fabio uses its own dedicated Microsoft Entra ID app registration for device code authentication:
+- **Client ID**: `38715dcd-c115-46b4-8ed1-967d06c9ec6d`
+- **Type**: Multitenant public client (AzureADMultipleOrgs), device code flow
+- **Consent**: User-consentable delegated permissions — no admin consent required
+- **Consent screen**: Shows **"Fabio CLI"** (not "Azure PowerShell" as in prior versions)
+- **Audit logs**: Sign-ins are attributed to "Fabio CLI" specifically
+- **Conditional Access**: Admins can target Fabio CLI independently in CA policies
+
+Users upgrading from v0.12.0 or earlier who run `fabio auth login` will see a new consent prompt for the Fabio CLI app (previous tokens from the Azure PowerShell app ID are not reused).
+
 ## Endpoint Scoping
 
 ### Workspace-scoped (most commands)
