@@ -1,6 +1,6 @@
 # fabio Command Reference
 
-Complete command reference organized by functional area.
+Complete command reference organized by functional area (69 groups, 766 subcommands).
 
 ## Core Commands
 
@@ -64,23 +64,29 @@ fabio workspace set-dataset-storage-format --id <id> --format <Large|Small>
 
 ### item (generic item operations)
 ```
-fabio item list --workspace <ws> [--type <ItemType>]
+fabio item list --workspace <ws> [--type <ItemType>] [--folder <folder-id>] [--recursive]
 fabio item show --workspace <ws> --id <id>
 fabio item create --workspace <ws> --name <name> --type <type>
 fabio item update --workspace <ws> --id <id> --name <new-name>
-fabio item delete --workspace <ws> --id <id>
+fabio item delete --workspace <ws> --id <id> [--hard-delete]
 fabio item copy --workspace <ws> --id <id> --dest-workspace <dest>
 fabio item move --workspace <ws> --id <id> --dest-workspace <dest>
 fabio item get-definition --workspace <ws> --id <id>
 fabio item update-definition --workspace <ws> --id <id> --file <path>
 fabio item list-connections --workspace <ws> --id <id>
+fabio item exists --workspace <ws> --id <id>
+fabio item url --workspace <ws> --id <id>
+fabio item inspect --workspace <ws> --id <id>
+fabio item move-to-folder --workspace <ws> --id <id> [--folder-id <fid>]
 fabio item apply-tags --workspace <ws> --id <id> --tag-ids '["uuid"]'
 fabio item unapply-tags --workspace <ws> --id <id> --tag-ids '["uuid"]'
+fabio item bulk-create --workspace <ws> --items <json>
+fabio item bulk-delete --workspace <ws> --ids '["id1","id2"]' [--hard-delete]
 fabio item bulk-export-definitions --workspace <ws> ...
 fabio item bulk-import-definitions --workspace <ws> ...
 fabio item bulk-move --workspace <ws> --ids '["id1","id2"]' --dest-workspace <dest>
 fabio item list-external-data-shares --workspace <ws> --id <id>
-fabio item create-external-data-share --workspace <ws> --id <id> ...
+fabio item create-external-data-share --workspace <ws> --id <id> --recipient-type <User|ServicePrincipal> --recipient-id <id> ...
 fabio item show-external-data-share --workspace <ws> --id <id> --share-id <sid>
 fabio item revoke-external-data-share --workspace <ws> --id <id> --share-id <sid>
 fabio item delete-external-data-share --workspace <ws> --id <id> --share-id <sid>
@@ -120,6 +126,10 @@ fabio lakehouse create-materialized-views-schedule --workspace <ws> --id <id> ..
 fabio lakehouse update-materialized-views-schedule --workspace <ws> --id <id> ...
 fabio lakehouse delete-materialized-views-schedule --workspace <ws> --id <id>
 fabio lakehouse run-table-maintenance --workspace <ws> --id <id>
+fabio lakehouse optimize-table --workspace <ws> --id <id> --table <name> [--v-order] [--z-order-by <col1,col2>]
+fabio lakehouse vacuum-table --workspace <ws> --id <id> --table <name> [--retention <D:HH:MM:SS>]
+fabio lakehouse table-schema --workspace <ws> --id <id> --table <name>
+fabio lakehouse query --workspace <ws> --id <id> --sql <"query"|@file|stdin>
 fabio lakehouse list-livy-sessions --workspace <ws> --id <id>
 fabio lakehouse get-livy-session --workspace <ws> --id <id> --session-id <sid>
 ```
@@ -128,11 +138,18 @@ fabio lakehouse get-livy-session --workspace <ws> --id <id> --session-id <sid>
 ```
 fabio capacity list
 fabio capacity show --id <id>
+fabio capacity suspend --subscription <sub> --resource-group <rg> --name <name>
+fabio capacity resume --subscription <sub> --resource-group <rg> --name <name>
+fabio capacity create --subscription <sub> --resource-group <rg> --name <name> --location <region> --sku <F2-F2048> --admin <email>
+fabio capacity update --subscription <sub> --resource-group <rg> --name <name> [--sku <sku>] [--admin <email>]
+fabio capacity delete --subscription <sub> --resource-group <rg> --name <name>
+fabio capacity list-skus --subscription <sub>
+fabio capacity check-name --subscription <sub> --location <region> --name <name>
 ```
 
 ### catalog
 ```
-fabio catalog search --query <text> [--type <ItemType>]
+fabio catalog search --content '{"searchString":"<text>","top":N}'
 ```
 
 ## Data & Compute
@@ -144,9 +161,9 @@ fabio notebook show --workspace <ws> --id <id>
 fabio notebook create --workspace <ws> --name <name> [--lakehouse <lh-id>] [--source <file.py>]
 fabio notebook update --workspace <ws> --id <id> --name <new-name>
 fabio notebook delete --workspace <ws> --id <id>
-fabio notebook get-definition --workspace <ws> --id <id>
+fabio notebook get-definition --workspace <ws> --id <id> [--strip-output]
 fabio notebook update-definition --workspace <ws> --id <id> --source <file.py>
-fabio notebook run --workspace <ws> --id <id> [--wait] [--timeout <secs>]
+fabio notebook run --workspace <ws> --id <id> [--wait] [--timeout <secs>] [--parameters <json>] [--compute-type <type>] [--execution-data <json>]
 fabio notebook status --workspace <ws> --id <id>
 fabio notebook get-job-instance --workspace <ws> --id <id> --instance-id <iid>
 fabio notebook stop --workspace <ws> --id <id>
@@ -220,6 +237,31 @@ fabio data-pipeline update-definition --workspace <ws> --id <id> --file <path>
 fabio data-pipeline create-schedule --workspace <ws> --id <id> ...
 ```
 
+### copy-job
+```
+fabio copy-job list --workspace <ws>
+fabio copy-job show --workspace <ws> --id <id>
+fabio copy-job create --workspace <ws> --name <name>
+fabio copy-job update --workspace <ws> --id <id> --name <new-name>
+fabio copy-job delete --workspace <ws> --id <id>
+fabio copy-job get-definition --workspace <ws> --id <id>
+fabio copy-job update-definition --workspace <ws> --id <id> --file <path>
+```
+
+### dataflow
+```
+fabio dataflow list --workspace <ws>
+fabio dataflow show --workspace <ws> --id <id>
+fabio dataflow create --workspace <ws> --name <name>
+fabio dataflow update --workspace <ws> --id <id> --name <new-name>
+fabio dataflow delete --workspace <ws> --id <id>
+fabio dataflow get-definition --workspace <ws> --id <id>
+fabio dataflow update-definition --workspace <ws> --id <id> --file <path>
+fabio dataflow discover-parameters --workspace <ws> --id <id>
+fabio dataflow run --workspace <ws> --id <id> [--wait] [--timeout <secs>]
+fabio dataflow execute-query --workspace <ws> --id <id> --query-name <name> [--file <output>]
+```
+
 ### environment
 ```
 fabio environment list --workspace <ws>
@@ -289,8 +331,22 @@ fabio semantic-model get-definition --workspace <ws> --id <id>
 fabio semantic-model update-definition --workspace <ws> --id <id> --file <path>
 fabio semantic-model query --workspace <ws> --id <id> --dax <"query">
 fabio semantic-model bind-connection --workspace <ws> --id <id> --connection <conn-id>
+fabio semantic-model unbind-connection --workspace <ws> --id <id>
 fabio semantic-model refresh --workspace <ws> --id <id>
 fabio semantic-model takeover --workspace <ws> --id <id>
+# Power BI API commands (via api.powerbi.com)
+fabio semantic-model list-parameters --workspace <ws> --id <id>
+fabio semantic-model update-parameters --workspace <ws> --id <id> --content <json>
+fabio semantic-model list-datasources --workspace <ws> --id <id>
+fabio semantic-model update-datasources --workspace <ws> --id <id> --content <json>
+fabio semantic-model list-users --workspace <ws> --id <id>
+fabio semantic-model add-user --workspace <ws> --id <id> --content <json>
+fabio semantic-model delete-user --workspace <ws> --id <id> --user <email-or-id>
+fabio semantic-model refresh-status --workspace <ws> --id <id> [--top <N>]
+fabio semantic-model list-upstream --workspace <ws> --id <id>
+fabio semantic-model clone --workspace <ws> --id <id> --name <new-name> [--target-workspace <ws2>]
+fabio semantic-model export-pbix --workspace <ws> --id <id> --file <output.pbix>
+fabio semantic-model import-pbix --workspace <ws> --name <name> --file <input.pbix> [--name-conflict <Abort|Overwrite|CreateOrOverwrite|GenerateUniqueName>]
 ```
 
 ### report
@@ -337,6 +393,47 @@ fabio apache-airflow-job delete-file --workspace <ws> --id <id> --path <file-pat
 fabio apache-airflow-job get-compute --workspace <ws> --id <id>
 fabio apache-airflow-job get-workspace-settings --workspace <ws> --id <id>
 fabio apache-airflow-job deploy-requirements --workspace <ws> --id <id> --file <path>
+```
+
+### ml-model
+```
+fabio ml-model list --workspace <ws>
+fabio ml-model show --workspace <ws> --id <id>
+fabio ml-model create --workspace <ws> --name <name>
+fabio ml-model update --workspace <ws> --id <id> --name <new-name>
+fabio ml-model delete --workspace <ws> --id <id>
+```
+
+### ml-experiment
+```
+fabio ml-experiment list --workspace <ws>
+fabio ml-experiment show --workspace <ws> --id <id>
+fabio ml-experiment create --workspace <ws> --name <name>
+fabio ml-experiment update --workspace <ws> --id <id> --name <new-name>
+fabio ml-experiment delete --workspace <ws> --id <id>
+```
+
+### spark
+```
+fabio spark get-settings --workspace <ws>
+fabio spark update-settings --workspace <ws> [--file <path>|--content <json>]
+fabio spark list-pools --workspace <ws>
+fabio spark get-pool --workspace <ws> --pool-id <pid>
+fabio spark create-pool --workspace <ws> [--file <path>|--content <json>]
+fabio spark update-pool --workspace <ws> --pool-id <pid> [--file <path>|--content <json>]
+fabio spark delete-pool --workspace <ws> --pool-id <pid>
+```
+
+### spark-job-definition
+```
+fabio spark-job-definition list --workspace <ws>
+fabio spark-job-definition show --workspace <ws> --id <id>
+fabio spark-job-definition create --workspace <ws> --name <name>
+fabio spark-job-definition update --workspace <ws> --id <id> --name <new-name>
+fabio spark-job-definition delete --workspace <ws> --id <id>
+fabio spark-job-definition get-definition --workspace <ws> --id <id>
+fabio spark-job-definition update-definition --workspace <ws> --id <id> --file <path>
+fabio spark-job-definition run --workspace <ws> --id <id>
 ```
 
 ## Real-Time Intelligence
@@ -636,7 +733,7 @@ fabio deployment-pipeline deploy --id <id> --source-stage <sid> --target-stage <
 ```
 fabio job-scheduler list-instances --workspace <ws> --item-id <id>
 fabio job-scheduler get-instance --workspace <ws> --item-id <id> --instance-id <iid>
-fabio job-scheduler run-on-demand --workspace <ws> --item-id <id> --job-type <type>
+fabio job-scheduler run-on-demand --workspace <ws> --item-id <id> --job-type <type> [--wait] [--timeout <secs>] [--cancel-on-timeout]
 fabio job-scheduler cancel-instance --workspace <ws> --item-id <id> --instance-id <iid>
 fabio job-scheduler list-schedules --workspace <ws> --item-id <id>
 fabio job-scheduler get-schedule --workspace <ws> --item-id <id> --schedule-id <sid>
@@ -689,6 +786,7 @@ fabio deploy plan --source <DIR> --workspace <ID|NAME> [--item-types <T1,T2>] [-
 fabio deploy apply --source <DIR> --workspace <ID|NAME> [--plan <FILE>] [--item-types <T1,T2>] [--delete-orphans] [--allow-unresolved] [--fail-fast] [--force] [--force-all] [--concurrency <N>] [--parameters <FILE> --env <NAME>] [--no-post-hooks]
 fabio deploy export --workspace <ID|NAME> --dir <DIR> [--item-types <T1,T2>] [--overwrite] [--dry-run]
 fabio deploy init-params --source <DIR> [--compare <DIR>] [--source-env <NAME>] [--compare-env <NAME>] [--out <FILE>]
+fabio deploy validate --source <DIR>
 ```
 
 ## Configuration & Tooling
@@ -726,6 +824,32 @@ fabio feedback send --message <text>
 fabio feedback list
 ```
 
+### rest (raw REST passthrough)
+```
+fabio rest call --method <GET|POST|PUT|PATCH|DELETE> --path <api-path> [--body <json|@file|@->] [--query-params <key=value>] [--poll] [--api <fabric|powerbi>]
+```
+
+### rti (Real-Time Intelligence)
+```
+fabio rti nl-to-kql --workspace <ws> --item-id <id> --cluster-url <kusto-uri> --database <db-name> --question <"natural language">
+```
+
+### paginated-report
+```
+fabio paginated-report list --workspace <ws>
+fabio paginated-report update --workspace <ws> --id <id> --name <new-name>
+```
+
+### dashboard
+```
+fabio dashboard list --workspace <ws>
+```
+
+### datamart
+```
+fabio datamart list --workspace <ws>
+```
+
 ## Security & Networking
 
 ### gateway
@@ -749,6 +873,7 @@ fabio gateway delete-role-assignment --id <id> --assignment-id <aid>
 ```
 fabio onelake-security list --workspace <ws> --item-id <id>
 fabio onelake-security show --workspace <ws> --item-id <id> --role <name>
+fabio onelake-security create --workspace <ws> --item-id <id> --role <json|@file>
 fabio onelake-security upsert --workspace <ws> --item-id <id> --content <json>
 fabio onelake-security delete --workspace <ws> --item-id <id> --role <name>
 ```

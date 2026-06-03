@@ -813,3 +813,209 @@ fabio warehouse get-audit-settings --workspace $WS --id $WH
 fabio warehouse update-audit-settings --workspace $WS --id $WH \
   --content '{"state":"Enabled","retentionDays":90,"auditActionsAndGroups":["SUCCESSFUL_DATABASE_AUTHENTICATION_GROUP","BATCH_COMPLETED_GROUP"]}'
 ```
+
+## Semantic Model Power BI Operations
+
+### Clone and Export
+
+```bash
+# Clone a semantic model within the same workspace
+fabio semantic-model clone --workspace $WS --id $SM --name "SalesModel-Copy"
+
+# Clone to another workspace
+fabio semantic-model clone --workspace $WS --id $SM --name "SalesModel-Prod" --target-workspace $WS_PROD
+
+# Export as .pbix file
+fabio semantic-model export-pbix --workspace $WS --id $SM --file ./exports/sales.pbix
+
+# Import a .pbix file (overwrite if exists)
+fabio semantic-model import-pbix --workspace $WS --name "ImportedModel" \
+  --file ./models/sales.pbix --name-conflict Overwrite
+```
+
+### User Management
+
+```bash
+# List users with access to the semantic model
+fabio semantic-model list-users --workspace $WS --id $SM
+
+# Grant ReadWrite access to a user
+fabio semantic-model add-user --workspace $WS --id $SM \
+  --content '{"identifier":"user@company.com","principalType":"User","datasetUserAccessRight":"ReadWrite"}'
+
+# Remove a user
+fabio semantic-model delete-user --workspace $WS --id $SM --user "user@company.com"
+
+# Check refresh history
+fabio semantic-model refresh-status --workspace $WS --id $SM --top 5
+```
+
+### Parameters and Data Sources
+
+```bash
+# List M parameters
+fabio semantic-model list-parameters --workspace $WS --id $SM
+
+# Update parameters (change database connection)
+fabio semantic-model update-parameters --workspace $WS --id $SM \
+  --content '{"updateDetails":[{"name":"DatabaseServer","newValue":"prod-server.database.windows.net"}]}'
+
+# List data sources
+fabio semantic-model list-datasources --workspace $WS --id $SM
+```
+
+## REST Passthrough
+
+### Direct API Calls
+
+```bash
+# GET request to Fabric API
+fabio rest call --method GET --path "/workspaces" --query-params "roles=Admin"
+
+# POST with body from file
+fabio rest call --method POST --path "/workspaces/$WS/items" --body @item.json
+
+# POST with stdin body
+echo '{"displayName":"test"}' | fabio rest call --method POST --path "/workspaces/$WS/items" --body @-
+
+# Call Power BI API directly
+fabio rest call --method GET --path "/groups/$WS/datasets" --api powerbi
+
+# LRO-aware call (poll until complete)
+fabio rest call --method POST --path "/workspaces/$WS/items/$ID/getDefinition" --body '{}' --poll
+
+# Dry-run for mutations
+fabio rest call --method DELETE --path "/workspaces/$WS/items/$ID" --dry-run
+```
+
+## Natural Language to KQL
+
+```bash
+# Translate a question to KQL
+fabio rti nl-to-kql --workspace $WS --item-id $KDB \
+  --cluster-url "https://$EH_ID.eastus.kusto.fabric.microsoft.com" \
+  --database "SensorDB" \
+  --question "What is the average temperature in the last 24 hours?"
+
+# With few-shot examples for better accuracy
+fabio rti nl-to-kql --workspace $WS --item-id $KDB \
+  --cluster-url "$KUSTO_URI" \
+  --database "SensorDB" \
+  --question "Show devices with temperature above 80" \
+  --user-shots '[{"naturalLanguage":"count events","kqlQuery":"SensorEvents | count"}]'
+```
+
+## Capacity Lifecycle Management (ARM API)
+
+```bash
+# List available SKUs in your subscription
+fabio capacity list-skus --subscription $SUB_ID
+
+# Check if a capacity name is available
+fabio capacity check-name --subscription $SUB_ID --location eastus --name "myanalyticsf4"
+
+# Create a new F4 capacity
+fabio capacity create --subscription $SUB_ID --resource-group "fabric-rg" \
+  --name "myanalyticsf4" --location eastus --sku F4 --admin "admin@company.com"
+
+# Suspend capacity (save costs when not in use)
+fabio capacity suspend --subscription $SUB_ID --resource-group "fabric-rg" --name "myanalyticsf4"
+
+# Resume capacity
+fabio capacity resume --subscription $SUB_ID --resource-group "fabric-rg" --name "myanalyticsf4"
+
+# Scale up to F8
+fabio capacity update --subscription $SUB_ID --resource-group "fabric-rg" \
+  --name "myanalyticsf4" --sku F8
+
+# Delete capacity
+fabio capacity delete --subscription $SUB_ID --resource-group "fabric-rg" --name "myanalyticsf4"
+```
+
+## Deploy Validate (Pre-Flight Checks)
+
+```bash
+# Validate source directory before planning
+fabio deploy validate --source ./fabric-items
+
+# Full CI/CD pipeline
+fabio deploy validate --source ./fabric-items && \
+fabio deploy plan --source ./fabric-items --workspace $WS && \
+fabio deploy apply --source ./fabric-items --workspace $WS
+```
+
+## Item Bulk Operations
+
+```bash
+# Bulk create items (parallel, rate-limit aware)
+fabio item bulk-create --workspace $WS --items '[
+  {"displayName":"Lake1","type":"Lakehouse"},
+  {"displayName":"Lake2","type":"Lakehouse"},
+  {"displayName":"Notebook1","type":"Notebook"}
+]'
+
+# Bulk delete items
+fabio item bulk-delete --workspace $WS --ids '["id1","id2","id3"]'
+
+# Hard delete (skip recycle bin)
+fabio item bulk-delete --workspace $WS --ids '["id1","id2"]' --hard-delete
+
+# Check if an item exists (never errors on 404)
+fabio item exists --workspace $WS --id $ITEM_ID
+
+# Get portal URL for an item
+fabio item url --workspace $WS --id $ITEM_ID
+
+# Move item to a folder (or root)
+fabio item move-to-folder --workspace $WS --id $ITEM_ID --folder-id $FOLDER_ID
+fabio item move-to-folder --workspace $WS --id $ITEM_ID  # moves to root
+```
+
+## Notebook Run with Parameters
+
+```bash
+# Run with parameters (wait for completion)
+fabio notebook run --workspace $WS --id $NB --wait --timeout 900 \
+  --parameters '[{"name":"start_date","value":"2024-01-01","type":"Text"},{"name":"batch_size","value":"1000","type":"Int"}]'
+
+# Get definition without outputs (for git)
+fabio notebook get-definition --workspace $WS --id $NB --strip-output
+
+# Run with custom compute type
+fabio notebook run --workspace $WS --id $NB --wait \
+  --compute-type "Spark" --execution-data '{"configuration":{"conf":{"spark.dynamicAllocation.enabled":"true"}}}'
+```
+
+## Dataflow Operations
+
+```bash
+# List M parameters in a dataflow
+fabio dataflow discover-parameters --workspace $WS --id $DF
+
+# Run a dataflow (wait for completion)
+fabio dataflow run --workspace $WS --id $DF --wait --timeout 600
+
+# Execute a query and save results as Arrow IPC
+fabio dataflow execute-query --workspace $WS --id $DF \
+  --query-name "TransformedData" --file ./output/results.arrow
+```
+
+## Lakehouse Table Maintenance
+
+```bash
+# Optimize a table (V-Order compaction)
+fabio lakehouse optimize-table --workspace $WS --id $LH --table sales --v-order
+
+# Optimize with Z-Order clustering
+fabio lakehouse optimize-table --workspace $WS --id $LH --table sales \
+  --v-order --z-order-by "country,date"
+
+# Vacuum a table (remove old files, 7-day retention)
+fabio lakehouse vacuum-table --workspace $WS --id $LH --table sales --retention "7:00:00:00"
+
+# Get table schema without Spark (reads Delta log)
+fabio lakehouse table-schema --workspace $WS --id $LH --table sales
+
+# Query lakehouse via SQL endpoint
+fabio lakehouse query --workspace $WS --id $LH --sql "SELECT COUNT(*) FROM dbo.sales"
+```

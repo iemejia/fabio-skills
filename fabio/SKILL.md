@@ -1,11 +1,11 @@
 ---
 name: fabio
-description: "Manage Microsoft Fabric artifacts and data using the fabio CLI - an agent-first command-line tool with 661 subcommands across 66 groups, structured JSON output, composable piping, and machine-readable errors. Use when working with Fabric workspaces, lakehouses, warehouses, notebooks, eventhouses, semantic models, reports, data pipelines, KQL databases, eventstreams, deploy CI/CD, or any Fabric REST API resource. Covers CRUD operations, file upload/download, SQL/DAX/KQL queries, Git integration, deployment pipelines, CI/CD deploy (plan/apply/export), and administration."
+description: "Manage Microsoft Fabric artifacts and data using the fabio CLI - an agent-first command-line tool with 766 subcommands across 69 groups, structured JSON output, composable piping, and machine-readable errors. Use when working with Fabric workspaces, lakehouses, warehouses, notebooks, eventhouses, semantic models, reports, data pipelines, KQL databases, eventstreams, deploy CI/CD, REST passthrough, Power BI API, capacity lifecycle, or any Fabric REST API resource. Covers CRUD operations, file upload/download, SQL/DAX/KQL queries, Git integration, deployment pipelines, CI/CD deploy (plan/apply/export/validate), natural language to KQL, and administration."
 license: Apache-2.0
-compatibility: "Requires fabio binary (Linux/macOS/Windows x64/arm64). Authentication via `fabio auth login` (uses same Microsoft Identity platform as Azure CLI). Strongly recommended companions: az (Azure CLI) for supplementary Azure operations, gh (GitHub CLI) for release downloads. Network access to api.fabric.microsoft.com and onelake.dfs.fabric.microsoft.com required."
+compatibility: "Requires fabio binary (Linux/macOS/Windows x64/arm64). Authentication via `fabio auth login` (uses same Microsoft Identity platform as Azure CLI). Strongly recommended companions: az (Azure CLI) for supplementary Azure operations, gh (GitHub CLI) for release downloads. Network access to api.fabric.microsoft.com, api.powerbi.com, and onelake.dfs.fabric.microsoft.com required."
 metadata:
   author: iemejia
-  version: "0.10.0"
+  version: "0.15.0"
   repository: https://github.com/iemejia/fabio
 ---
 
@@ -13,7 +13,7 @@ metadata:
 
 ## Overview
 
-`fabio` is a CLI designed for AI agents first, humans second. It manages the entire Microsoft Fabric platform (661 subcommands across 66 groups) from the command line with structured JSON output, composable stdin/stdout piping, machine-readable error codes, and non-interactive operation.
+`fabio` is a CLI designed for AI agents first, humans second. It manages the entire Microsoft Fabric platform (766 subcommands across 69 groups) from the command line with structured JSON output, composable stdin/stdout piping, machine-readable error codes, and non-interactive operation.
 
 ## Installation
 
@@ -112,7 +112,7 @@ All commands produce structured JSON by default. The envelope format is:
 {"error": {"code": "NOT_FOUND", "message": "...", "hint": "..."}}
 ```
 
-Use `-o table` for human-readable output, `-o plain` for one-value-per-line shell scripting.
+Use `-o table` for human-readable output, `-o plain` for one-value-per-line shell scripting, `-o csv` or `-o tsv` for tabular data export.
 
 ### Error Codes
 
@@ -124,7 +124,7 @@ Errors include `hint` fields with actionable suggestions for self-correction.
 
 | Flag | Purpose |
 |------|---------|
-| `-o`, `--output` | `json` (default), `table`, `plain` |
+| `-o`, `--output` | `json` (default), `table`, `plain`, `csv`, `tsv` |
 | `--json` | Shorthand for `--output json` |
 | `-q`, `--query` | Dot-notation field projection |
 | `--quiet` | Suppress stdout (errors still on stderr) |
@@ -134,6 +134,8 @@ Errors include `hint` fields with actionable suggestions for self-correction.
 | `--all` | Auto-paginate all pages |
 | `--continuation-token` | Resume pagination |
 | `--profile` | Use a named profile |
+| `--lro-timeout` | Custom LRO polling timeout |
+| `--hard-delete` | Permanently delete (skip recycle bin) — supported on all 38 item type delete commands |
 
 ### Long-Running Operations (LRO)
 
@@ -191,23 +193,25 @@ These are essential for correct operation. See [references/API-BEHAVIORS.md](ref
 8. **SQL Database needs F4+ capacity**: F2 fails with error 18456 State 240 for TDS connections.
 9. **Report visuals require PBIR-Legacy with prototypeQuery**: PBIR format cannot render data programmatically. Use `report.json` with `prototypeQuery` in each visual's config.
 10. **Deploy uses content-hash diffing**: SHA-256 of sorted definition parts; no state file; always queries live workspace.
+11. **Power BI and Fabric share one token**: The Fabric token (`https://api.fabric.microsoft.com/.default`) works for both `api.fabric.microsoft.com` and `api.powerbi.com`. No separate scope needed.
+12. **Capacity lifecycle via ARM API**: suspend/resume/create/update/delete use `management.azure.com` with separate ARM scope — requires Azure RBAC (Contributor) on the capacity resource.
 
 ## Command Groups
 
-fabio has 66 command groups with 661 subcommands covering the full Fabric API surface. See [references/COMMANDS.md](references/COMMANDS.md) for the complete reference.
+fabio has 69 command groups with 766 subcommands covering the full Fabric API surface. See [references/COMMANDS.md](references/COMMANDS.md) for the complete reference.
 
 **Core**: auth, workspace, item, lakehouse, capacity, catalog
 **Data & Compute**: notebook, warehouse, sql-database, sql-endpoint, data-pipeline, copy-job, dataflow, environment, data-agent, ontology
-**Analytics**: report, semantic-model, paginated-report, dashboard, datamart
-**Real-Time Intelligence**: eventhouse, eventstream, kql-database, kql-queryset, kql-dashboard, reflex, anomaly-detector, event-schema-set
+**Analytics**: report, semantic-model (including 12 Power BI API commands: clone, export-pbix, import-pbix, list-users, etc.), paginated-report, dashboard, datamart
+**Real-Time Intelligence**: eventhouse, eventstream, kql-database, kql-queryset, kql-dashboard, reflex, anomaly-detector, event-schema-set, rti (nl-to-kql)
 **Data Science**: ml-model, ml-experiment, operations-agent, spark, spark-job-definition, apache-airflow-job
 **Graph & Digital Twins**: graphql-api, graph-model, graph-query-set, digital-twin-builder, digital-twin-builder-flow, map
 **Mirroring**: mirrored-database, mirrored-catalog, mirrored-databricks-catalog, mirrored-warehouse, cosmos-db-database, snowflake-database, mounted-data-factory
 **Integration**: git, connection, deployment-pipeline, domain, job-scheduler, variable-library, user-data-function
-**CI/CD**: deploy (plan, apply, export, init-params — stateless content-hash diffing, parameter substitution, rename detection, post-deploy hooks)
+**CI/CD**: deploy (plan, apply, export, init-params, validate — stateless content-hash diffing, parameter substitution, rename detection, post-deploy hooks)
 **Security**: onelake-security, managed-private-endpoint, gateway
 **Admin**: admin (49 subcommands for tenant administration — tenant settings, workspaces, items, users, domains, tags, labels, sharing links, external data shares, workloads)
-**Tooling**: profile, jobs, feedback, agent-context, operation
+**Tooling**: profile, jobs, feedback, agent-context, operation, rest (raw REST passthrough with Power BI API support)
 
 ## CI/CD Deployment (fabio deploy)
 
@@ -216,6 +220,9 @@ A stateless CI/CD engine that deploys Fabric items via content-hash diffing (no 
 ```bash
 # Export current workspace state to disk
 fabio deploy export --workspace $WS --dir ./fabric-items --overwrite
+
+# Validate source directory (local-only pre-flight checks, no API calls)
+fabio deploy validate --source ./fabric-items
 
 # Plan changes (compare source directory against live workspace)
 fabio deploy plan --source ./fabric-items --workspace $WS
@@ -271,9 +278,11 @@ fabio lakehouse create --workspace $WS --name "NewLake" | \
 ## Key URLs
 
 - Fabric REST API: `https://api.fabric.microsoft.com/v1`
+- Power BI REST API: `https://api.powerbi.com/v1.0/myorg`
 - OneLake DFS: `https://onelake.dfs.fabric.microsoft.com`
 - OneLake Blob: `https://onelake.blob.fabric.microsoft.com`
-- Fabric scope: `https://analysis.windows.net/powerbi/api/.default`
+- Fabric scope: `https://api.fabric.microsoft.com/.default`
 - Storage scope: `https://storage.azure.com/.default`
+- ARM scope: `https://management.azure.com/.default`
 - Repository: `https://github.com/iemejia/fabio`
 - Releases: `https://github.com/iemejia/fabio/releases`

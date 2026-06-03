@@ -25,11 +25,12 @@ Critical API behaviors that agents must know for correct operation. These are ba
 
 | API Surface | Token Scope |
 |---|---|
-| Fabric REST API | `https://analysis.windows.net/powerbi/api/.default` |
+| Fabric REST API | `https://api.fabric.microsoft.com/.default` |
 | OneLake DFS/Blob | `https://storage.azure.com/.default` |
 | KQL (Kusto) queries | `{kusto_cluster_uri}/.default` |
 | SQL (TDS) queries | SQL-scoped AAD token via `require_sql_auth()` |
-| Power BI REST API | `https://analysis.windows.net/powerbi/api/.default` |
+| Power BI REST API | `https://api.fabric.microsoft.com/.default` (same token — reused) |
+| ARM API (capacity lifecycle) | `https://management.azure.com/.default` |
 
 ## Endpoint Scoping
 
@@ -817,3 +818,155 @@ Initial → Starting → Started → Stopping → Stopped
 - Start: `POST /workspaces/{ws}/apacheAirflowJobs/{id}/startEnvironment`
 - Stop: `POST /workspaces/{ws}/apacheAirflowJobs/{id}/stopEnvironment`
 - Get state: `GET /workspaces/{ws}/apacheAirflowJobs/{id}/getEnvironment`
+
+## Power BI REST API Integration
+
+### Single Token for Both APIs
+The Fabric token (`https://api.fabric.microsoft.com/.default` scope) is accepted by both `api.fabric.microsoft.com` and `api.powerbi.com`. No separate Power BI scope is needed.
+
+### Power BI API Base URL
+`https://api.powerbi.com/v1.0/myorg`. Workspaces are referenced as "groups": `/groups/{workspace-id}/datasets/{dataset-id}`.
+
+### `datasets` = semantic models
+The Power BI REST API uses the legacy term "datasets" for what Fabric calls "semantic models". The ID is the same UUID.
+
+### `--api powerbi` flag on `fabio rest call`
+Routes requests to the Power BI API instead of Fabric. Dry-run output includes `"api": "powerbi"` field. Env var `FABIO_POWERBI_ENDPOINT` overrides the base URL (for sovereign clouds).
+
+### Semantic Model Power BI Commands
+12 subcommands via Power BI REST API:
+- `list-parameters`: `GET /groups/{ws}/datasets/{id}/parameters`
+- `update-parameters`: `POST /groups/{ws}/datasets/{id}/Default.UpdateParameters`
+- `list-datasources`: `GET /groups/{ws}/datasets/{id}/datasources`
+- `update-datasources`: `POST /groups/{ws}/datasets/{id}/Default.UpdateDatasources`
+- `list-users`: `GET /groups/{ws}/datasets/{id}/users`
+- `add-user`: `POST /groups/{ws}/datasets/{id}/users`
+- `delete-user`: `DELETE /groups/{ws}/datasets/{id}/users/{user}`
+- `refresh-status`: `GET /groups/{ws}/datasets/{id}/refreshes?$top=N`
+- `list-upstream`: `GET /groups/{ws}/datasets/{id}/upstreamDatasets`
+- `clone`: `POST /groups/{ws}/datasets/{id}/Default.Clone`
+- `export-pbix`: `POST /groups/{ws}/datasets/{id}/Default.Export` (binary download)
+- `import-pbix`: `POST /groups/{ws}/imports` (multipart/form-data)
+
+### import-pbix nameConflict Values
+`Abort` (default), `Overwrite`, `CreateOrOverwrite`, `GenerateUniqueName`
+
+### add-user accessRight Values
+`Read`, `ReadWrite`, `ReadWriteReshare`, `ReadWriteReshareExplore`, `ReadExplore`, `ReadReshareExplore`, `ReadWriteExplore`
+
+## Capacity ARM API Lifecycle
+
+### Dual API Design
+- Read operations (list/show): Fabric API (`api.fabric.microsoft.com/v1/capacities`)
+- Lifecycle operations (suspend/resume/create/update/delete): ARM API (`management.azure.com`)
+
+### ARM API Details
+- API version: `2023-11-01`
+- Resource path: `/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Fabric/capacities/{name}`
+- Auth scope: `https://management.azure.com/.default` (separate from Fabric scope)
+- Requires Azure RBAC (Contributor) on the capacity resource
+
+### Capacity Name Constraints
+3-63 chars, pattern `^[a-z][a-z0-9]*$` (lowercase only, starts with letter)
+
+### SKU Values
+F2, F4, F8, F16, F32, F64, F128, F256, F512, F1024, F2048 (Fabric tier)
+
+### State Values
+`Active`, `Inactive` (paused/suspended), `Provisioning`, `Deleting`
+
+## REST Passthrough Command
+
+### Usage
+```bash
+fabio rest call --method GET --path "/workspaces/{ws}/items" [--body <json|@file|@->] [--query-params "key=value"] [--poll] [--api <fabric|powerbi>]
+```
+
+### Body Resolution
+- Inline JSON: `--body '{"key": "value"}'`
+- From file: `--body @path/to/file.json`
+- From stdin: `--body @-`
+
+### `--poll` flag
+Enables LRO polling on the response (follows Location header)
+
+### `--api powerbi`
+Routes to `https://api.powerbi.com/v1.0/myorg` instead of Fabric base URL
+
+## RTI (Real-Time Intelligence) NL-to-KQL
+
+### Endpoint
+`POST /workspaces/{ws}/realTimeIntelligence/nltokql?beta=true`
+
+### Request Body (Required Fields)
+```json
+{
+  "itemIdForBilling": "<kql-database-or-eventhouse-id>",
+  "clusterUrl": "<kusto-uri>",
+  "databaseName": "<db-name>",
+  "naturalLanguage": "<question>"
+}
+```
+
+### Optional Fields
+- `userShots`: Array of `{"naturalLanguage":"...","kqlQuery":"..."}` examples
+- `chatMessages`: Array of `{"role":"User|Assistant","content":"..."}` for multi-turn
+
+### Response
+Returns JSON with `kqlQuery` field containing the generated KQL, plus `explanation` and metadata.
+
+## CSV/TSV Output Format
+
+All commands support `--output csv` and `--output tsv`. RFC 4180 quoting for CSV. Useful for piping to spreadsheet tools or data pipelines.
+
+## Hard Delete
+
+### `--hard-delete` on All Item Deletes
+38 item type delete commands support `--hard-delete` flag to permanently delete (skip recycle bin). Appends `?hardDelete=true` to URL.
+
+Non-item deletes (connection, deployment-pipeline, domain, gateway, managed-private-endpoint, onelake-security, profile, workspace) do NOT have this flag.
+
+## Error `isRetriable` Field
+
+API responses may include `error.isRetriable: bool`. When present, serialized in the structured error output as `"retriable": true/false`. Useful for agent retry logic.
+
+## Item Exists/URL/Inspect
+
+### `item exists`
+Returns `{"exists": true/false}` — never errors on 404 (unlike `item show`).
+
+### `item url`
+Returns the Fabric portal URL for the item.
+
+### `item inspect`
+Aggregates metadata + definition + connections in a single response (reduces API calls).
+
+## Notebook `--strip-output`
+
+`get-definition --strip-output` clears `outputs` and `execution_count` from ipynb cells. Gracefully passes through `.py` format notebooks. Useful for git-friendly exports.
+
+## Notebook Run with Parameters
+
+```bash
+fabio notebook run --workspace $WS --id $NB --wait \
+  --parameters '[{"name":"p1","value":"v1","type":"Text"}]' \
+  --compute-type "Spark"
+```
+
+Parameter type values: `Text`, `Int`, `Long`, `Double`, `Bool`, `DateTime`
+
+## Deploy Validate
+
+Local-only pre-flight checks on source directory (validates .platform files, item types, definition structure, logical ID references). No API calls required.
+
+```bash
+fabio deploy validate --source ./fabric-items
+```
+
+## Private Link URL Routing
+
+When `private_link_workspace` is configured via profile, URLs are transformed for private network access. Use `fabio profile save --name private --private-link-workspace <ws-id>` to configure.
+
+## Dataflow Execute Query
+
+`POST /workspaces/{ws}/dataflows/{id}/executeQuery` returns binary Apache Arrow IPC stream (NOT JSON). Save with `--file` flag. Requires Contributor role.
