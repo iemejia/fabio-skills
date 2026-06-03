@@ -1,11 +1,11 @@
 ---
 name: fabio
-description: "Manage Microsoft Fabric artifacts and data using the fabio CLI - an agent-first command-line tool with 661 subcommands across 66 groups, structured JSON output, composable piping, and machine-readable errors. Use when working with Fabric workspaces, lakehouses, warehouses, notebooks, eventhouses, semantic models, reports, data pipelines, KQL databases, eventstreams, deploy CI/CD, or any Fabric REST API resource. Covers CRUD operations, file upload/download, SQL/DAX/KQL queries, Git integration, deployment pipelines, CI/CD deploy (plan/apply/export), and administration."
+description: "Manage Microsoft Fabric artifacts and data using the fabio CLI - an agent-first command-line tool with 766 subcommands across 69 groups, structured JSON output, composable piping, and machine-readable errors. Use when working with Fabric workspaces, lakehouses, warehouses, notebooks, eventhouses, semantic models, reports, data pipelines, KQL databases, eventstreams, RTI (real-time intelligence / nl-to-kql), deploy CI/CD, or any Fabric REST API resource. Covers CRUD operations, file upload/download, SQL/DAX/KQL queries, Git integration, deployment pipelines, CI/CD deploy (plan/apply/export), and administration."
 license: Apache-2.0
 compatibility: "Requires fabio binary (Linux/macOS/Windows x64/arm64). Authentication via `fabio auth login` (uses same Microsoft Identity platform as Azure CLI). Strongly recommended companions: az (Azure CLI) for supplementary Azure operations, gh (GitHub CLI) for release downloads. Network access to api.fabric.microsoft.com and onelake.dfs.fabric.microsoft.com required."
 metadata:
   author: iemejia
-  version: "0.10.0"
+  version: "0.15.0"
   repository: https://github.com/iemejia/fabio
 ---
 
@@ -13,7 +13,7 @@ metadata:
 
 ## Overview
 
-`fabio` is a CLI designed for AI agents first, humans second. It manages the entire Microsoft Fabric platform (661 subcommands across 66 groups) from the command line with structured JSON output, composable stdin/stdout piping, machine-readable error codes, and non-interactive operation.
+`fabio` is a CLI designed for AI agents first, humans second. It manages the entire Microsoft Fabric platform (766 subcommands across 69 groups) from the command line with structured JSON output, composable stdin/stdout piping, machine-readable error codes, and non-interactive operation.
 
 ## Installation
 
@@ -194,12 +194,12 @@ These are essential for correct operation. See [references/API-BEHAVIORS.md](ref
 
 ## Command Groups
 
-fabio has 66 command groups with 661 subcommands covering the full Fabric API surface. See [references/COMMANDS.md](references/COMMANDS.md) for the complete reference.
+fabio has 69 command groups with 766 subcommands covering the full Fabric API surface. See [references/COMMANDS.md](references/COMMANDS.md) for the complete reference.
 
 **Core**: auth, workspace, item, lakehouse, capacity, catalog
 **Data & Compute**: notebook, warehouse, sql-database, sql-endpoint, data-pipeline, copy-job, dataflow, environment, data-agent, ontology
 **Analytics**: report, semantic-model, paginated-report, dashboard, datamart
-**Real-Time Intelligence**: eventhouse, eventstream, kql-database, kql-queryset, kql-dashboard, reflex, anomaly-detector, event-schema-set
+**Real-Time Intelligence**: eventhouse, eventstream, kql-database, kql-queryset, kql-dashboard, reflex, anomaly-detector, event-schema-set, rti
 **Data Science**: ml-model, ml-experiment, operations-agent, spark, spark-job-definition, apache-airflow-job
 **Graph & Digital Twins**: graphql-api, graph-model, graph-query-set, digital-twin-builder, digital-twin-builder-flow, map
 **Mirroring**: mirrored-database, mirrored-catalog, mirrored-databricks-catalog, mirrored-warehouse, cosmos-db-database, snowflake-database, mounted-data-factory

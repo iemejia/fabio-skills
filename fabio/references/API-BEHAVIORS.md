@@ -78,8 +78,15 @@ Cold start on small capacity: 2-5 minutes from `NotStarted` to `InProgress`.
 - **`format` goes inside `formatOptions`**: The discriminated union requires format field in the options object
 - **CSV-specific fields with Parquet cause rejection**: Never send `header`/`delimiter` with Parquet format
 
-### list-tables Response Key
-Lakehouse tables use `"data"` key in the response. All other Fabric list endpoints use `"value"`.
+### load-table Multi-Schema Support
+- `--schema` flag routes to the multi-schema endpoint: `POST /workspaces/{ws}/lakehouses/{id}/schemas/{schemaName}/tables/{table}/load?beta=true`
+- Without `--schema`, uses the default endpoint (no schema path segment)
+- This is a **beta endpoint** — requires `?beta=true` query parameter
+
+### create-shortcut Conflict Policy
+- `--conflict-policy` maps to the `shortcutConflictPolicy` query parameter
+- Values: `Abort` (fail if name conflicts), `GenerateUniqueName` (auto-suffix to avoid conflict)
+- Default behavior (no flag): server determines policy (typically Abort)
 
 ### OneLake File Operations
 
@@ -316,7 +323,13 @@ User-provided JSON `{"key": "value"}` is converted to the API format:
 
 ## OneLake Security
 - `upsert` replaces ALL roles atomically (PUT semantics, not PATCH)
-- No individual role create/update — always send the full set
+- No individual role create/update via upsert — always send the full set
+- `create` uses the native single-role POST endpoint: `POST /workspaces/{ws}/items/{id}/dataAccessRoles?dataAccessRoleConflictPolicy={policy}`
+  - `--conflict-policy Abort` (default) fails if role with that name exists
+  - `--conflict-policy Overwrite` replaces an existing role with the same name
+- `show` and `delete` use native per-roleName endpoints:
+  - `GET /workspaces/{ws}/items/{id}/dataAccessRoles/{roleName}`
+  - `DELETE /workspaces/{ws}/items/{id}/dataAccessRoles/{roleName}`
 
 ## Git Integration (Azure DevOps)
 
@@ -609,6 +622,113 @@ Standard CRUD at `/workspaces/{ws}/folders`:
 
 - **OAP outbound restriction** requires F64+ capacity
 - **Inbound** works on Trial capacity
+
+## Error Handling
+
+### isRetriable Field
+API error responses may include `"isRetriable": true|false` in the error body. fabio parses this and surfaces it in structured error output:
+```json
+{"error": {"code": "API_ERROR", "message": "...", "retriable": true}}
+```
+The `retriable` field is **omitted when absent** (not present for all errors). When `true`, the operation is safe to retry immediately.
+
+## Item API Behaviors
+
+### list Server-Side Filters
+`item list` supports server-side filtering via query parameters:
+- `--folder <folder-id>` → `rootFolderId={id}` query param (items in that folder only)
+- `--recursive` → `recursive=true` (include items in subfolders)
+- `--include <types>` → `include={types}` (comma-separated item types to include)
+
+### move-to-folder
+```
+POST /workspaces/{ws}/items/{id}/move
+Body: {"targetFolderId": "<folder-id>"}
+```
+Moves an item to a different folder within the same workspace.
+
+### create-external-data-share Recipient Types
+```json
+{
+  "recipient": {
+    "recipientType": "User",
+    "objectId": "<principal-id>"
+  }
+}
+```
+Supported `recipientType` values: `User`, `ServicePrincipal`.
+
+## Notebook API Behaviors
+
+### Parameterized Run
+`notebook run` extended parameters:
+- `--parameters <json>`: JSON array of parameter objects: `[{"name":"p1","value":"v1","type":"Text"}]`
+  - Valid types: `Text`, `Bool`, `Int`, `Float`
+- `--compute-type <type>`: Sets `executionData.computeType` in the job request body
+- `--execution-data <json>`: Full JSON object merged into the job request body (overrides individual flags)
+
+### get-definition --strip-output
+When `--strip-output` is provided, fabio strips cell outputs from the `.ipynb` notebook before returning the definition. Useful for clean source control diffs.
+
+## Dataflow API Behaviors
+
+### dataflow run
+```
+POST /workspaces/{ws}/dataflows/{id}/jobs/instances?jobType={type}
+```
+- `--job-type execute` (default): standard dataflow execution
+- `--job-type apply-changes`: apply pending dataflow changes
+- `--execute-option`: passed as `executeOption` in the request body
+- `--parameters`: JSON object passed as `executionParameters` in the request body
+- Supports `--wait`, `--timeout`, `--cancel-on-timeout` (same as notebook run)
+
+### dataflow execute-query
+```
+POST /workspaces/{ws}/dataflows/{id}/executeQuery
+Body: {"queryName": "...", "customMashup": "..."}
+```
+- Returns **binary Arrow IPC stream** (not JSON)
+- Use `--file <path>` to save the binary output to a file
+- If no `--file` is specified, binary data is written to stdout
+
+## Connection API Behaviors
+
+### Credential Types
+In addition to previously supported types, these credential types are now supported in `connection create`:
+- `WorkspaceIdentity`: Uses workspace-managed identity (no explicit credential values needed)
+- `KeyPair`: Public/private key pair credentials
+
+## RTI (Real-Time Intelligence) API Behaviors
+
+### nl-to-kql
+Translates natural language to KQL using Fabric's RTI service:
+```
+POST /workspaces/{ws}/realTimeIntelligence/nltokql?beta=true
+Body:
+{
+  "itemIdForBilling": "<item-id>",
+  "clusterUrl": "https://<cluster>.z0.kusto.fabric.microsoft.com",
+  "databaseName": "<db-name>",
+  "naturalLanguage": "show me top 10 events by count",
+  "userShots": [...],       // optional: few-shot examples
+  "chatMessages": [...]     // optional: conversation history
+}
+```
+- **Beta endpoint** — requires `?beta=true`
+- Response: `{"kqlQuery": "...", "explanation": "..."}`
+- `--item-id` (`itemIdForBilling`) is the Eventhouse or KQL database item ID used for billing attribution
+
+## Environment API Behaviors
+
+### upload-staging-library
+```
+POST /workspaces/{ws}/environments/{id}/staging/libraries
+Content-Type: application/octet-stream
+Body: <binary file content>
+```
+- Uses raw binary upload (not multipart form, not base64)
+- `--library-name` overrides the filename; defaults to the source filename
+- Supported library types: `.whl`, `.jar`, `.tar.gz`
 
 ### Identity Provisioning
 - `POST /workspaces/{ws}/provisionIdentity` is **LRO** (returns 202)

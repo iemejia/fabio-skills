@@ -813,3 +813,113 @@ fabio warehouse get-audit-settings --workspace $WS --id $WH
 fabio warehouse update-audit-settings --workspace $WS --id $WH \
   --content '{"state":"Enabled","retentionDays":90,"auditActionsAndGroups":["SUCCESSFUL_DATABASE_AUTHENTICATION_GROUP","BATCH_COMPLETED_GROUP"]}'
 ```
+
+## RTI: Natural Language to KQL
+
+```bash
+# Get the eventhouse + KQL database IDs
+EH=$(fabio eventhouse list --workspace $WS -q "data[0].id" -o plain)
+KDB=$(fabio kql-database list --workspace $WS -q "data[0].id" -o plain)
+KDB_PROPS=$(fabio kql-database show --workspace $WS --id $KDB)
+CLUSTER_URL=$(echo $KDB_PROPS | jq -r '.data.properties.queryServiceUri')
+DB_NAME=$(echo $KDB_PROPS | jq -r '.data.displayName')
+
+# Translate natural language to KQL
+fabio rti nl-to-kql \
+  --workspace $WS \
+  --item-id $KDB \
+  --cluster-url "$CLUSTER_URL" \
+  --database "$DB_NAME" \
+  --natural-language "Show me the top 10 devices by event count in the last hour"
+
+# Response:
+# {"data": {"kqlQuery": "SensorEvents | where Timestamp > ago(1h) | summarize count() by DeviceId | top 10 by count_", "explanation": "..."}}
+
+# Pipe the KQL directly to kql-database query
+KQL=$(fabio rti nl-to-kql \
+  --workspace $WS --item-id $KDB \
+  --cluster-url "$CLUSTER_URL" --database "$DB_NAME" \
+  --natural-language "Average temperature per device last 24h" \
+  -q "data.kqlQuery" -o plain)
+
+fabio kql-database query --workspace $WS --id $KDB --kql "$KQL"
+```
+
+## Notebook: Parameterized Run
+
+```bash
+# Run notebook with parameters (overrides notebook variables)
+fabio notebook run --workspace $WS --id $NB --wait \
+  --parameters '[{"name":"start_date","value":"2024-01-01","type":"Text"},{"name":"batch_size","value":"1000","type":"Int"}]'
+
+# Run with a specific compute type
+fabio notebook run --workspace $WS --id $NB --wait \
+  --compute-type "Standard"
+
+# Export notebook definition without cell outputs (for source control)
+fabio notebook get-definition --workspace $WS --id $NB --strip-output > clean_notebook.ipynb
+```
+
+## Dataflow: Run and Execute Query
+
+```bash
+# Run a dataflow (standard execution)
+fabio dataflow run --workspace $WS --id $DF --wait
+
+# Run with apply-changes job type
+fabio dataflow run --workspace $WS --id $DF --job-type apply-changes --wait
+
+# Run with parameters
+fabio dataflow run --workspace $WS --id $DF --wait \
+  --parameters '{"sourceTable": "orders", "targetSchema": "dbo"}'
+
+# Discover available parameters
+fabio dataflow discover-parameters --workspace $WS --id $DF
+
+# Execute a dataflow query and save binary Arrow IPC output
+fabio dataflow execute-query --workspace $WS --id $DF \
+  --query-name "SalesQuery" --file output.arrow
+```
+
+## OneLake Security: Fine-Grained Access
+
+```bash
+# List all data access roles
+fabio onelake-security list --workspace $WS --item-id $LH
+
+# Get a specific role by name
+fabio onelake-security show --workspace $WS --item-id $LH --role "ReadersRole"
+
+# Create a new role (fails if name exists)
+fabio onelake-security create --workspace $WS --item-id $LH \
+  --role '{"name":"ReadersRole","decisionRules":[{"effect":"Permit","permission":[{"attributeName":"Path","attributeValueIncludedIn":["Tables/sales"]}]}],"members":{"fabricItemMembers":[],"microsoftEntraMembers":[],"tenantProfiles":[]}}'
+
+# Create with overwrite if already exists
+fabio onelake-security create --workspace $WS --item-id $LH \
+  --conflict-policy Overwrite --role @role-definition.json
+
+# Upsert all roles atomically (replaces entire role set)
+fabio onelake-security upsert --workspace $WS --item-id $LH \
+  --content '{"value": [{"name": "ReadersRole", ...}, {"name": "WritersRole", ...}]}'
+
+# Delete a specific role
+fabio onelake-security delete --workspace $WS --item-id $LH --role "ReadersRole"
+```
+
+## Environment: Library Management
+
+```bash
+# Upload a Python wheel to staging environment
+fabio environment upload-staging-library --workspace $WS --id $ENV \
+  --file my_package-1.0.0-py3-none-any.whl
+
+# Upload a JAR with custom name
+fabio environment upload-staging-library --workspace $WS --id $ENV \
+  --file lib/my-connector.jar --library-name connector-v2.jar
+
+# Publish after library upload
+fabio environment publish --workspace $WS --id $ENV
+
+# View staged libraries before publishing
+fabio environment list-staging-libraries --workspace $WS --id $ENV
+```
