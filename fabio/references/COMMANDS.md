@@ -13,7 +13,7 @@ fabio auth status            Show authentication status and credential source
 
 ### workspace
 ```
-fabio workspace list                    List all workspaces
+fabio workspace list [--capacity <cap-id>]             List all workspaces (client-side filter by capacity)
 fabio workspace show --id <id>          Show workspace details
 fabio workspace create --name <name>    Create a new workspace
 fabio workspace update --id <id> --name <new-name>  Update properties
@@ -58,13 +58,12 @@ fabio workspace get-outbound-gateway-rules --id <id>
 fabio workspace set-outbound-gateway-rules --id <id> [--file <path>|--content <json>]
 fabio workspace get-settings --id <id>
 fabio workspace update-settings --id <id> [--file <path>|--content <json>]
-fabio workspace get-dataset-storage-format --id <id>
-fabio workspace set-dataset-storage-format --id <id> --format <Large|Small>
+fabio workspace url --id <id>                          Return Fabric portal URL for workspace
 ```
 
 ### item (generic item operations)
 ```
-fabio item list --workspace <ws> [--type <ItemType>]
+fabio item list --workspace <ws> [--type <ItemType>] [--folder <folder-id>]
 fabio item show --workspace <ws> --id <id>
 fabio item create --workspace <ws> --name <name> --type <type>
 fabio item update --workspace <ws> --id <id> --name <new-name>
@@ -87,6 +86,11 @@ fabio item delete-external-data-share --workspace <ws> --id <id> --share-id <sid
 fabio item assign-identity --workspace <ws> --id <id> ...
 fabio item get-invitation --workspace <ws> --id <id> ...
 fabio item accept-invitation --workspace <ws> --id <id> ...
+fabio item exists --workspace <ws> --id <id>                        Returns {exists: true|false}, never errors on 404
+fabio item url --workspace <ws> --id <id> [--type <ItemType>]       Return Fabric portal URL for item
+fabio item inspect --workspace <ws> --id <id>                       Aggregated view: metadata + definition + connections
+fabio item bulk-create --workspace <ws> --content <json-array>      Parallel create from JSON array of item specs
+fabio item bulk-delete --workspace <ws> --ids <id1,id2,...>         Parallel delete by comma-separated IDs
 ```
 
 ### lakehouse
@@ -115,6 +119,10 @@ fabio lakehouse delete-shortcut --workspace <ws> --id <id> --name <name> --path 
 fabio lakehouse bulk-create-shortcuts --workspace <ws> --id <id> --file <path> [--conflict-policy <Abort|Replace>]
 fabio lakehouse get-definition --workspace <ws> --id <id>
 fabio lakehouse update-definition --workspace <ws> --id <id> --file <path>
+fabio lakehouse query --workspace <ws> --id <id> --sql <"query"|@file|stdin>   T-SQL query via SQL endpoint
+fabio lakehouse optimize-table --workspace <ws> --id <id> --table <name> [--schema <schema>] [--vorder] [--zorder <col,...>]
+fabio lakehouse vacuum-table --workspace <ws> --id <id> --table <name> [--schema <schema>] [--retain-hours <N>]   Default 168h
+fabio lakehouse table-schema --workspace <ws> --id <id> --table <name> [--schema <schema>]   Read Delta schema from OneLake DFS
 fabio lakehouse refresh-materialized-views --workspace <ws> --id <id>
 fabio lakehouse create-materialized-views-schedule --workspace <ws> --id <id> ...
 fabio lakehouse update-materialized-views-schedule --workspace <ws> --id <id> ...
@@ -126,13 +134,19 @@ fabio lakehouse get-livy-session --workspace <ws> --id <id> --session-id <sid>
 
 ### capacity
 ```
-fabio capacity list
-fabio capacity show --id <id>
-```
+fabio capacity list [--subscription <sub-id>]              List Fabric capacities (Fabric API)
+fabio capacity show --id <id>                              Show capacity details (Fabric API)
+fabio capacity suspend --id <id>                           Suspend capacity (ARM)
+fabio capacity resume --id <id>                            Resume capacity (ARM)
+fabio capacity create --subscription <sub-id> --resource-group <rg> --name <name> --location <region> --sku <F2|F4|...> --admin <email>   Create capacity (ARM)
+fabio capacity update --id <id> [--sku <sku>] [--admin <email>]    Update capacity SKU or admin (ARM)
+fabio capacity delete --id <id>                            Delete capacity (ARM)
+fabio capacity list-skus [--subscription <sub-id>] [--location <region>]   List available SKUs (ARM)
+fabio capacity check-name --name <name> --location <region>        Check name availability (ARM, location required)
 
 ### catalog
 ```
-fabio catalog search --query <text> [--type <ItemType>]
+fabio catalog search --search <text> [--type <ItemType,...>] [--exclude-type <ItemType,...>] [--top <N>]
 ```
 
 ## Data & Compute
@@ -144,7 +158,7 @@ fabio notebook show --workspace <ws> --id <id>
 fabio notebook create --workspace <ws> --name <name> [--lakehouse <lh-id>] [--source <file.py>]
 fabio notebook update --workspace <ws> --id <id> --name <new-name>
 fabio notebook delete --workspace <ws> --id <id>
-fabio notebook get-definition --workspace <ws> --id <id>
+fabio notebook get-definition --workspace <ws> --id <id> [--strip-output]   --strip-output clears cell outputs/execution_count
 fabio notebook update-definition --workspace <ws> --id <id> --source <file.py>
 fabio notebook run --workspace <ws> --id <id> [--wait] [--timeout <secs>]
 fabio notebook status --workspace <ws> --id <id>
@@ -291,6 +305,18 @@ fabio semantic-model query --workspace <ws> --id <id> --dax <"query">
 fabio semantic-model bind-connection --workspace <ws> --id <id> --connection <conn-id>
 fabio semantic-model refresh --workspace <ws> --id <id>
 fabio semantic-model takeover --workspace <ws> --id <id>
+fabio semantic-model list-parameters --workspace <ws> --id <id>                    GET /groups/{ws}/datasets/{id}/parameters
+fabio semantic-model update-parameters --workspace <ws> --id <id> --content <json> POST .../Default.UpdateParameters
+fabio semantic-model list-datasources --workspace <ws> --id <id>                   GET .../datasources
+fabio semantic-model update-datasources --workspace <ws> --id <id> --content <json> POST .../Default.UpdateDatasources
+fabio semantic-model list-users --workspace <ws> --id <id>                         GET .../users (access rights)
+fabio semantic-model add-user --workspace <ws> --id <id> --principal <email|id> --principal-type <User|Group|App> --access-right <Admin|Contributor|Reader|None>
+fabio semantic-model delete-user --workspace <ws> --id <id> --user <email|id>
+fabio semantic-model refresh-status --workspace <ws> --id <id> [--top <N>]        GET .../refreshes (refresh history)
+fabio semantic-model list-upstream --workspace <ws> --id <id>                      GET .../upstreamDatasets (lineage)
+fabio semantic-model clone --workspace <ws> --id <id> --name <new-name> [--target-workspace <ws2>]   POST .../Default.Clone
+fabio semantic-model export-pbix --workspace <ws> --id <id> --file <path>          POST .../Default.Export → binary .pbix download
+fabio semantic-model import-pbix --workspace <ws> --name <name> --file <path> [--name-conflict <Abort|Overwrite|CreateOrOverwrite|GenerateUniqueName>]
 ```
 
 ### report
@@ -636,7 +662,7 @@ fabio deployment-pipeline deploy --id <id> --source-stage <sid> --target-stage <
 ```
 fabio job-scheduler list-instances --workspace <ws> --item-id <id>
 fabio job-scheduler get-instance --workspace <ws> --item-id <id> --instance-id <iid>
-fabio job-scheduler run-on-demand --workspace <ws> --item-id <id> --job-type <type>
+fabio job-scheduler run-on-demand --workspace <ws> --item-id <id> --job-type <type> [--execution-data <json|@file>] [--wait] [--timeout <secs>] [--cancel-on-timeout]
 fabio job-scheduler cancel-instance --workspace <ws> --item-id <id> --instance-id <iid>
 fabio job-scheduler list-schedules --workspace <ws> --item-id <id>
 fabio job-scheduler get-schedule --workspace <ws> --item-id <id> --schedule-id <sid>
@@ -681,6 +707,19 @@ fabio user-data-function get-definition --workspace <ws> --id <id>
 fabio user-data-function update-definition --workspace <ws> --id <id> --file <path>
 ```
 
+## REST Pass-Through
+
+### rest
+```
+fabio rest call --method <GET|POST|PUT|PATCH|DELETE> --path <api-path> [--api <fabric|powerbi>] [--body <json|@file|@stdin>] [--query-params <key=val,...>] [--poll] [--dry-run]
+```
+
+`--path` is relative to the API base URL (e.g., `/workspaces` for Fabric, `/groups/{ws}/datasets` for Power BI).
+`--api fabric` (default): routes to `https://api.fabric.microsoft.com/v1{path}`
+`--api powerbi`: routes to `https://api.powerbi.com/v1.0/myorg{path}`
+`--poll`: poll LRO until completion for 202 responses.
+`--body @-` reads from stdin; `--body @file.json` reads from file.
+
 ## CI/CD Deployment
 
 ### deploy
@@ -688,6 +727,7 @@ fabio user-data-function update-definition --workspace <ws> --id <id> --file <pa
 fabio deploy plan --source <DIR> --workspace <ID|NAME> [--item-types <T1,T2>] [--delete-orphans] [--allow-unresolved] [--force-all] [--out <FILE>] [--parameters <FILE> --env <NAME>]
 fabio deploy apply --source <DIR> --workspace <ID|NAME> [--plan <FILE>] [--item-types <T1,T2>] [--delete-orphans] [--allow-unresolved] [--fail-fast] [--force] [--force-all] [--concurrency <N>] [--parameters <FILE> --env <NAME>] [--no-post-hooks]
 fabio deploy export --workspace <ID|NAME> --dir <DIR> [--item-types <T1,T2>] [--overwrite] [--dry-run]
+fabio deploy validate --source <DIR> [--parameters <FILE> --env <NAME>]            Local-only pre-flight checks (duplicate names/IDs, unknown types, cross-references)
 fabio deploy init-params --source <DIR> [--compare <DIR>] [--source-env <NAME>] [--compare-env <NAME>] [--out <FILE>]
 ```
 

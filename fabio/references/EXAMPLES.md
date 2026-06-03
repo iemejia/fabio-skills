@@ -813,3 +813,214 @@ fabio warehouse get-audit-settings --workspace $WS --id $WH
 fabio warehouse update-audit-settings --workspace $WS --id $WH \
   --content '{"state":"Enabled","retentionDays":90,"auditActionsAndGroups":["SUCCESSFUL_DATABASE_AUTHENTICATION_GROUP","BATCH_COMPLETED_GROUP"]}'
 ```
+
+## REST API Pass-Through
+
+### Fabric API Calls
+```bash
+# Raw GET against Fabric API
+fabio rest call --method GET --path /workspaces
+
+# POST with JSON body
+fabio rest call --method POST --path /workspaces \
+  --body '{"displayName": "MyWorkspace"}'
+
+# Poll LRO automatically
+fabio rest call --method POST --path /workspaces/$WS/items/$ITEM_ID/getDefinition --poll
+
+# Read body from file
+fabio rest call --method POST --path /workspaces/$WS/items \
+  --body @create-item.json
+```
+
+### Power BI API Pass-Through
+```bash
+# List semantic models via Power BI API (datasets = semantic models in PBI API)
+fabio rest call --api powerbi --method GET --path "/groups/$WS/datasets"
+
+# Get semantic model parameters
+fabio rest call --api powerbi --method GET --path "/groups/$WS/datasets/$SM_ID/parameters"
+
+# Trigger dataset refresh via Power BI API
+fabio rest call --api powerbi --method POST --path "/groups/$WS/datasets/$SM_ID/refreshes" \
+  --body '{"notifyOption":"NoNotification"}'
+
+# Preview request without executing
+fabio rest call --api powerbi --method POST --path "/groups/$WS/datasets/$SM_ID/Default.Clone" \
+  --body '{"name":"ClonedModel","targetWorkspaceId":"'$WS2'"}' --dry-run
+```
+
+## Semantic Model Power BI Operations
+
+### Parameters & Datasources
+```bash
+# List parameters
+fabio semantic-model list-parameters --workspace $WS --id $SM
+
+# Update a parameter value
+fabio semantic-model update-parameters --workspace $WS --id $SM \
+  --content '{"updateDetails": [{"name": "ServerName", "newValue": "server.database.windows.net"}]}'
+
+# List datasources
+fabio semantic-model list-datasources --workspace $WS --id $SM
+
+# Update datasource connection
+fabio semantic-model update-datasources --workspace $WS --id $SM \
+  --content '{"updateDetails": [{"connectionDetails": {"server": "new-server", "database": "mydb"}, "datasourceSelector": {"datasourceType": "Sql", "connectionDetails": {"server": "old-server", "database": "mydb"}}}]}'
+```
+
+### Access Management
+```bash
+# List users with access
+fabio semantic-model list-users --workspace $WS --id $SM
+
+# Grant read access
+fabio semantic-model add-user --workspace $WS --id $SM \
+  --principal user@org.com --principal-type User --access-right Reader
+
+# Revoke access
+fabio semantic-model delete-user --workspace $WS --id $SM --user user@org.com
+```
+
+### Clone, Export, Import
+```bash
+# Clone within same workspace
+fabio semantic-model clone --workspace $WS --id $SM --name "ModelV2"
+
+# Clone to a different workspace
+fabio semantic-model clone --workspace $WS --id $SM --name "ModelV2" \
+  --target-workspace $WS_TARGET
+
+# Export as .pbix file
+fabio semantic-model export-pbix --workspace $WS --id $SM --file model.pbix
+
+# Import .pbix (overwrite existing if name conflict)
+fabio semantic-model import-pbix --workspace $WS --name "MyModel" --file model.pbix \
+  --name-conflict Overwrite
+
+# Check refresh history
+fabio semantic-model refresh-status --workspace $WS --id $SM --top 5
+
+# View upstream lineage
+fabio semantic-model list-upstream --workspace $WS --id $SM
+```
+
+## ARM Capacity Lifecycle
+
+```bash
+# List available SKUs for a region
+fabio capacity list-skus --subscription $SUB --location eastus
+
+# Check name availability before creating
+fabio capacity check-name --name "my-fabric-capacity" --location eastus
+
+# Create a new capacity
+fabio capacity create \
+  --subscription $SUB \
+  --resource-group $RG \
+  --name "my-fabric-capacity" \
+  --location eastus \
+  --sku F4 \
+  --admin admin@org.com
+
+CAP=$(fabio capacity list -q id -o plain | head -1)
+
+# Suspend capacity (stop billing)
+fabio capacity suspend --id $CAP
+
+# Resume capacity
+fabio capacity resume --id $CAP
+
+# Scale up
+fabio capacity update --id $CAP --sku F8
+
+# Delete capacity
+fabio capacity delete --id $CAP
+```
+
+## Lakehouse Table Maintenance
+
+```bash
+# Read Delta schema without Spark
+fabio lakehouse table-schema --workspace $WS --id $LH --table orders
+
+# Query lakehouse via SQL endpoint (T-SQL)
+fabio lakehouse query --workspace $WS --id $LH \
+  --sql "SELECT country, COUNT(*) FROM orders GROUP BY country ORDER BY 2 DESC"
+
+# Optimize table (V-Order for Power BI, Z-Order for filter columns)
+fabio lakehouse optimize-table --workspace $WS --id $LH \
+  --table orders --vorder --zorder "country,year"
+
+# Vacuum old snapshots (retain 72 hours instead of default 168)
+fabio lakehouse vacuum-table --workspace $WS --id $LH \
+  --table orders --retain-hours 72
+```
+
+## Item Bulk Operations
+
+```bash
+# Bulk create multiple lakehouses
+fabio item bulk-create --workspace $WS \
+  --content '[{"displayName":"Bronze","type":"Lakehouse"},{"displayName":"Silver","type":"Lakehouse"},{"displayName":"Gold","type":"Lakehouse"}]'
+
+# Extract IDs from bulk-create result
+IDS=$(fabio item bulk-create --workspace $WS \
+  --content '[{"displayName":"TempA","type":"Lakehouse"},{"displayName":"TempB","type":"Lakehouse"}]' \
+  | jq -r '[.data[].id] | join(",")')
+
+# Bulk delete by comma-separated IDs
+fabio item bulk-delete --workspace $WS --ids "$IDS"
+
+# Check if item exists (never throws, safe for conditional logic)
+EXISTS=$(fabio item exists --workspace $WS --id $ITEM_ID -q exists -o plain)
+if [ "$EXISTS" = "true" ]; then
+  fabio item delete --workspace $WS --id $ITEM_ID
+fi
+
+# Get item portal URL
+fabio item url --workspace $WS --id $LH --type Lakehouse
+```
+
+## Deploy Validate & CSV Output
+
+```bash
+# Pre-flight validation before deploying (no network calls)
+fabio deploy validate --source ./fabric-items
+
+# Validate with parameter substitution
+fabio deploy validate --source ./fabric-items --parameters params.json --env prod
+
+# Export list as CSV for reporting
+fabio workspace list -o csv > workspaces.csv
+fabio lakehouse list --workspace $WS -o csv > lakehouses.csv
+
+# TSV output for tab-delimited processing
+fabio item list --workspace $WS --type Lakehouse -o tsv | awk -F'\t' '{print $1, $2}'
+```
+
+## Job Scheduler with Wait
+
+```bash
+# Run a notebook job and wait for completion
+fabio job-scheduler run-on-demand \
+  --workspace $WS --item-id $NB_ID --job-type RunNotebook \
+  --wait --timeout 600
+
+# Run with timeout; cancel job if not done in time
+fabio job-scheduler run-on-demand \
+  --workspace $WS --item-id $NB_ID --job-type RunNotebook \
+  --wait --timeout 300 --cancel-on-timeout
+
+# Fire-and-forget (returns job ID immediately)
+JOB=$(fabio job-scheduler run-on-demand \
+  --workspace $WS --item-id $NB_ID --job-type RunNotebook)
+
+# Check job status later
+fabio jobs get --id $(echo $JOB | jq -r '.data.id')
+
+# Run with execution data from file
+fabio job-scheduler run-on-demand \
+  --workspace $WS --item-id $NB_ID --job-type RunNotebook \
+  --execution-data @job-params.json --wait
+```

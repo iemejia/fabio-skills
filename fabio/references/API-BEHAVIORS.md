@@ -25,11 +25,31 @@ Critical API behaviors that agents must know for correct operation. These are ba
 
 | API Surface | Token Scope |
 |---|---|
-| Fabric REST API | `https://analysis.windows.net/powerbi/api/.default` |
+| Fabric REST API | `https://api.fabric.microsoft.com/.default` |
 | OneLake DFS/Blob | `https://storage.azure.com/.default` |
 | KQL (Kusto) queries | `{kusto_cluster_uri}/.default` |
 | SQL (TDS) queries | SQL-scoped AAD token via `require_sql_auth()` |
-| Power BI REST API | `https://analysis.windows.net/powerbi/api/.default` |
+| Power BI REST API | `https://api.fabric.microsoft.com/.default` (same as Fabric — same audience since v0.14.0) |
+| ARM (capacity lifecycle) | `https://management.azure.com/.default` (separate token acquired automatically) |
+
+### Scope Override Environment Variables (v0.14.0+)
+
+Endpoints and scopes can be overridden for sovereign cloud or private link scenarios:
+
+| Env Var | Default |
+|---------|---------|
+| `FABIO_FABRIC_API_ENDPOINT` | `https://api.fabric.microsoft.com/v1` |
+| `FABIO_ONELAKE_DFS_ENDPOINT` | `https://onelake.dfs.fabric.microsoft.com` |
+| `FABIO_ONELAKE_BLOB_ENDPOINT` | `https://onelake.blob.fabric.microsoft.com` |
+| `FABIO_ARM_ENDPOINT` | `https://management.azure.com` |
+| `FABIO_POWERBI_ENDPOINT` | `https://api.powerbi.com/v1.0/myorg` |
+| `FABIO_FABRIC_SCOPE` | `https://api.fabric.microsoft.com/.default` |
+| `FABIO_STORAGE_SCOPE` | `https://storage.azure.com/.default` |
+| `FABIO_SQL_SCOPE` | `https://database.windows.net/.default` |
+| `FABIO_ARM_SCOPE` | `https://management.azure.com/.default` |
+
+When endpoint env vars are set, private link URL transforms are bypassed (env var takes full precedence).
+Run `fabio agent-context` to see the current values of all registered env vars.
 
 ## Endpoint Scoping
 
@@ -52,9 +72,15 @@ GET  https://api.fabric.microsoft.com/v1/workspaces/{workspaceId}/{itemType}s/{i
 ### Standard Pattern
 1. Client sends POST/PUT/PATCH
 2. Server returns 202 with `Location` header and optional `x-ms-operation-id`
-3. Client polls Location URL every 2 seconds
+3. Client polls Location URL every 2 seconds (respects `Retry-After` header, capped at 60s)
 4. Terminal states: `Succeeded` or `Failed`
 5. On success, follow the resource URL in the response
+
+Use `--lro-timeout <seconds>` (global flag) to override the default 120s maximum wait.
+
+### ARM LRO Pattern (capacity lifecycle)
+ARM operations use `Azure-AsyncOperation` header for polling (not `Location`).
+Poll interval respects `Retry-After`; ARM operations typically complete in 30-90s.
 
 ### LRO Commands
 - All `get-definition` and `update-definition` operations
@@ -63,6 +89,9 @@ GET  https://api.fabric.microsoft.com/v1/workspaces/{workspaceId}/{itemType}s/{i
 - `git status`, `git commit`, `git pull`, `git init`
 - `sql-endpoint refresh-metadata`
 - `lakehouse bulk-create-shortcuts`
+- `capacity suspend`, `capacity resume`, `capacity create`, `capacity delete`
+- `lakehouse optimize-table`, `lakehouse vacuum-table` (via Jobs API)
+- `job-scheduler run-on-demand` with `--wait`
 
 ### Notebook Job States
 `NotStarted` -> `InProgress` -> `Completed` | `Failed` | `Cancelled`
@@ -817,3 +846,95 @@ Initial → Starting → Started → Stopping → Stopped
 - Start: `POST /workspaces/{ws}/apacheAirflowJobs/{id}/startEnvironment`
 - Stop: `POST /workspaces/{ws}/apacheAirflowJobs/{id}/stopEnvironment`
 - Get state: `GET /workspaces/{ws}/apacheAirflowJobs/{id}/getEnvironment`
+
+## Transport Retry
+
+fabio automatically retries HTTP 502/503/504 responses with linear backoff:
+- 3 attempts total
+- Backoff: 1s, 2s, 3s between attempts
+- This covers transient Fabric gateway errors without agent involvement.
+
+Error code headers `x-ms-public-api-error-code` and `x-ms-error-code` are extracted into error messages for actionable diagnostics.
+
+## Catalog Search
+
+### Flat Body Structure (critical)
+`itemTypes` and `excludeItemTypes` are **top-level fields** in the POST body — NOT nested under a `filter` object:
+```json
+{"searchQuery": "text", "itemTypes": ["Lakehouse"], "excludeItemTypes": []}
+```
+Nesting them under `filter` returns empty results silently.
+
+### Flag Name Change
+Use `--search` (not `--query`) for search text. The `--query / -q` flag is a global field projection flag; using `--query` for search text caused dry-run output to return `null` instead of the planned request body.
+
+## Power BI API Pass-Through
+
+`fabio rest call --api powerbi` routes requests to `https://api.powerbi.com/v1.0/myorg{path}` using the same Fabric token (both share the `api.fabric.microsoft.com/.default` scope since v0.14.0).
+
+In Power BI API terminology:
+- **"datasets"** = semantic models
+- Workspace = "group" (paths use `/groups/{workspaceId}/...`)
+
+Example Power BI API paths:
+- `/groups/{ws}/datasets` — list semantic models
+- `/groups/{ws}/datasets/{id}/parameters` — list parameters
+- `/groups/{ws}/reports` — list reports
+
+## ARM Capacity Lifecycle
+
+Capacity lifecycle (suspend/resume/create/update/delete) uses Azure Resource Manager:
+- Base URL: `https://management.azure.com`
+- Scope: `https://management.azure.com/.default` (separate token acquired automatically)
+- ARM subscription-scoped: requires `--subscription <sub-id>` for create/list-skus
+
+### check-name Quirk
+`capacity check-name` requires `--location` (ARM validates name availability per region, unlike most Fabric endpoints which are global).
+
+### create Payload
+```json
+{"location": "eastus", "sku": {"name": "F4", "tier": "Fabric"}, "properties": {"administration": {"members": ["user@org.com"]}}}
+```
+SKU tier must be `"Fabric"` (PascalCase).
+
+## Lakehouse Table Maintenance
+
+### optimize-table Payload
+Uses Jobs API with `jobType=TableMaintenance`:
+```json
+{"executionData": {"optimizeSettings": {"vOrder": true, "zOrderBy": ["col1", "col2"]}}}
+```
+Both `vOrder` and `zOrder` are optional (camelCase in API).
+
+### vacuum-table Payload
+Retention period encoded as `D:HH:MM:SS` string:
+```json
+{"executionData": {"vacuumSettings": {"retentionPeriod": "7:00:00:00"}}}
+```
+Default retention is 168 hours (7 days). Values below 7 days require Delta vacuumMinRetentionCheck disabled on the capacity.
+
+### table-schema via Delta Log
+- Reads `_delta_log/*.json` commit files directly from OneLake DFS — no Spark or SQL endpoint required.
+- **Must list from root** (no `directory=` parameter): the DFS `directory=Tables/` param triggers a virtual lakehouse-in-lakehouse view that doubles top-level directories and hides the actual `_delta_log` entries.
+- Iterates commits newest-to-oldest until a `metaData.schemaString` entry is found.
+- Schema is encoded as NDJSON inside the `metaData.schemaString` field.
+
+## Item Bulk Operations
+
+### bulk-create
+- Accepts JSON array of item specs: `[{"name": "...", "type": "Lakehouse"}, ...]`
+- Creates in parallel with bounded concurrency
+- Automatic rate-limit retry
+- Returns per-item success/failure report (partial failures don't abort the batch)
+
+### bulk-delete
+- Accepts comma-separated IDs: `--ids id1,id2,id3`
+- Deletes in parallel; returns per-item success/failure report
+
+## Private Link Routing
+
+When `private_link_workspace` is set in the profile, URL transforms are applied:
+- Fabric API: `api.fabric.microsoft.com` → `{workspace}.privatelink.analysis.windows.net`
+- OneLake DFS: workspace-specific private endpoint
+- OneLake Blob: workspace-specific private endpoint
+When `FABIO_FABRIC_API_ENDPOINT` env var is set, private link transforms are bypassed entirely.
