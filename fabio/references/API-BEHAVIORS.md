@@ -32,6 +32,46 @@ Critical API behaviors that agents must know for correct operation. These are ba
 | Power BI REST API | `https://api.fabric.microsoft.com/.default` (same token — reused) |
 | ARM API (capacity lifecycle) | `https://management.azure.com/.default` |
 
+### CI/CD Authentication
+
+`DefaultAzureCredential` with client secret environment variables works correctly in CI as of v0.16.0. Set these three variables before running fabio:
+
+```bash
+export AZURE_CLIENT_ID="<app-id>"
+export AZURE_TENANT_ID="<tenant-id>"
+export AZURE_CLIENT_SECRET="<secret>"
+fabio auth status   # confirms env-var credential source
+```
+
+**GitHub Actions — OIDC federated credentials (recommended, secretless):**
+
+```yaml
+permissions:
+  id-token: write
+  contents: read
+
+steps:
+  - uses: azure/login@v3
+    with:
+      client-id: ${{ vars.AZURE_CLIENT_ID }}
+      tenant-id: ${{ vars.AZURE_TENANT_ID }}
+      allow-no-subscriptions: true   # Fabric-only auth doesn't need a subscription
+  - run: fabio workspace list
+```
+
+**GitHub Actions — service principal with client secret (simpler, no extra actions):**
+
+```yaml
+steps:
+  - env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+    run: fabio workspace list
+```
+
+> **Fix in v0.16.0**: Prior versions panicked at runtime with "The reqwest feature is required to use the default HTTP client" when using client secret env vars. The `reqwest` and `tokio` features are now enabled on `azure_identity`/`azure_core`.
+
 ## Endpoint Scoping
 
 ### Workspace-scoped (most commands)

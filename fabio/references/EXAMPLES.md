@@ -621,6 +621,48 @@ fabio gateway delete --id $GW
 
 ## Deploy CI/CD (Stateless Workspace Deployment)
 
+### GitHub Actions — OIDC (Recommended, secretless)
+
+```yaml
+name: Deploy Fabric
+on: [push]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install fabio
+        run: bash .agents/skills/fabio/scripts/install.sh
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true   # Fabric-only, no Azure subscription needed
+
+      - name: Deploy to Fabric workspace
+        run: |
+          fabio deploy apply --source ./fabric-items --workspace "${{ vars.FABRIC_WS_ID }}"
+```
+
+### GitHub Actions — Client Secret (simpler, no extra actions)
+
+```yaml
+      - name: Deploy to Fabric workspace
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        run: |
+          fabio deploy apply --source ./fabric-items --workspace "${{ vars.FABRIC_WS_ID }}"
+```
+
 ### Export → Modify → Deploy Pattern
 ```bash
 # Export current workspace state to disk

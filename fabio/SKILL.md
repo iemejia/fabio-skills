@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: "Requires fabio binary (Linux/macOS/Windows x64/arm64). Authentication via `fabio auth login` (uses same Microsoft Identity platform as Azure CLI). Strongly recommended companions: az (Azure CLI) for supplementary Azure operations, gh (GitHub CLI) for release downloads. Network access to api.fabric.microsoft.com, api.powerbi.com, and onelake.dfs.fabric.microsoft.com required."
 metadata:
   author: iemejia
-  version: "0.15.0"
+  version: "0.16.0"
   repository: https://github.com/iemejia/fabio
 ---
 
@@ -150,9 +150,11 @@ LRO pattern: 2s polling interval, 120s max wait by default. Status transitions: 
 ### Agent Introspection
 
 ```bash
-# Get machine-readable command schema
+# Get machine-readable command schema (v2 — includes auth_scope and returns for all commands)
 fabio agent-context
 ```
+
+Schema version 2 includes `auth_scope` (`fabric`, `arm`, or `local`) and `returns` (`list`, `object`, or `void`) annotations for all 592+ subcommands across all command groups, plus `output_fields`, `workflows`, `output_conventions`, and 35 item type `definition_paths`.
 
 ## Workflow: From Sign-In to Queryable Data
 
@@ -211,7 +213,7 @@ fabio has 69 command groups with 766 subcommands covering the full Fabric API su
 **CI/CD**: deploy (plan, apply, export, init-params, validate — stateless content-hash diffing, parameter substitution, rename detection, post-deploy hooks)
 **Security**: onelake-security, managed-private-endpoint, gateway
 **Admin**: admin (49 subcommands for tenant administration — tenant settings, workspaces, items, users, domains, tags, labels, sharing links, external data shares, workloads)
-**Tooling**: profile, jobs, feedback, agent-context, operation, rest (raw REST passthrough with Power BI API support)
+**Tooling**: profile, jobs, feedback, agent-context, operation, rest (raw REST passthrough with Power BI API support), completions (shell tab-completion scripts)
 
 ## CI/CD Deployment (fabio deploy)
 
