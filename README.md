@@ -106,12 +106,12 @@ fabio/
 ├── scripts/
 │   └── install.sh              # Cross-platform binary installer
 └── references/
-    ├── COMMANDS.md             # Full command reference (37 groups, 267+ subcommands)
+    ├── COMMANDS.md             # Full command reference (69 groups, 766 subcommands)
     ├── API-BEHAVIORS.md        # Critical API quirks agents must know
     └── EXAMPLES.md             # End-to-end workflow examples
 ```
 
-The agent loads `SKILL.md` (~240 lines) when activated. Reference files are loaded on demand only when deeper detail is needed for a specific task.
+The agent loads `SKILL.md` (~288 lines) when activated. Reference files are loaded on demand only when deeper detail is needed for a specific task.
 
 ## Other agents
 

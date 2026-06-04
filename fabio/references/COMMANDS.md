@@ -309,6 +309,17 @@ fabio ontology get-definition --workspace <ws> --id <id> [--decode] [--dir <path
 fabio ontology update-definition --workspace <ws> --id <id> --file <path> [--dir <path>]
 ```
 
+### graphql-api
+```
+fabio graphql-api list --workspace <ws>
+fabio graphql-api show --workspace <ws> --id <id>
+fabio graphql-api create --workspace <ws> --name <name>
+fabio graphql-api update --workspace <ws> --id <id> --name <new-name>
+fabio graphql-api delete --workspace <ws> --id <id>
+fabio graphql-api get-definition --workspace <ws> --id <id>
+fabio graphql-api update-definition --workspace <ws> --id <id> --file <path>
+```
+
 ### warehouse-snapshot
 ```
 fabio warehouse-snapshot list --workspace <ws>
@@ -608,6 +619,21 @@ fabio map update-definition --workspace <ws> --id <id> --file <path>
 ```
 
 ## Mirroring
+
+### mirrored-database
+```
+fabio mirrored-database list --workspace <ws>
+fabio mirrored-database show --workspace <ws> --id <id>
+fabio mirrored-database create --workspace <ws> --name <name>
+fabio mirrored-database update --workspace <ws> --id <id> --name <new-name>
+fabio mirrored-database delete --workspace <ws> --id <id>
+fabio mirrored-database get-definition --workspace <ws> --id <id>
+fabio mirrored-database update-definition --workspace <ws> --id <id> --file <path>
+fabio mirrored-database start --workspace <ws> --id <id>
+fabio mirrored-database stop --workspace <ws> --id <id>
+fabio mirrored-database status --workspace <ws> --id <id>
+fabio mirrored-database table-status --workspace <ws> --id <id>
+```
 
 ### mirrored-catalog
 ```
