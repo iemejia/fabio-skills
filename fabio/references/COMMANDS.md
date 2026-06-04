@@ -835,7 +835,33 @@ fabio jobs prune
 
 ### agent-context
 ```
-fabio agent-context    # Machine-readable command schema for AI agents
+fabio agent-context    # Machine-readable command schema (v2: auth_scope + returns for all commands)
+```
+
+Schema v2 includes `auth_scope` (fabric/arm/local) and `returns` (list/object/void) for all subcommands.
+
+### completions
+```
+fabio completions bash         Print bash completion script
+fabio completions zsh          Print zsh completion script
+fabio completions fish         Print fish completion script
+fabio completions powershell   Print PowerShell completion script
+fabio completions elvish       Print elvish completion script
+```
+
+Setup examples:
+```bash
+# bash — add to ~/.bashrc
+eval "$(fabio completions bash)"
+
+# zsh — add to ~/.zshrc
+eval "$(fabio completions zsh)"
+
+# fish
+fabio completions fish | source
+
+# PowerShell — add to $PROFILE
+fabio completions powershell | Out-String | Invoke-Expression
 ```
 
 ### operation (LRO management)
