@@ -1,0 +1,219 @@
+name: "Tier 1+2: Skill Validation"
+
+on:
+  pull_request:
+    paths:
+      - "fabio/**"
+      - "README.md"
+  push:
+    branches: [main]
+    paths:
+      - "fabio/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  structural:
+    name: Structural Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate SKILL.md frontmatter
+        run: |
+          # Check SKILL.md exists and has frontmatter
+          if ! head -1 fabio/SKILL.md | grep -q "^---"; then
+            echo "::error::SKILL.md missing YAML frontmatter"
+            exit 1
+          fi
+
+          # Extract frontmatter and validate required fields
+          FRONTMATTER=$(sed -n '/^---$/,/^---$/p' fabio/SKILL.md | sed '1d;$d')
+
+          # Check 'name' field exists and matches directory
+          NAME=$(echo "$FRONTMATTER" | grep '^name:' | sed 's/name: *//' | tr -d '"')
+          if [ -z "$NAME" ]; then
+            echo "::error::SKILL.md missing 'name' field"
+            exit 1
+          fi
+          if [ "$NAME" != "fabio" ]; then
+            echo "::error::name field '$NAME' does not match directory name 'fabio'"
+            exit 1
+          fi
+
+          # Validate name format: lowercase alphanumeric + hyphens, no start/end hyphen
+          if ! echo "$NAME" | grep -qE '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$'; then
+            echo "::error::name '$NAME' does not match spec (lowercase, hyphens, no leading/trailing hyphen)"
+            exit 1
+          fi
+          if echo "$NAME" | grep -q '\-\-'; then
+            echo "::error::name '$NAME' contains consecutive hyphens"
+            exit 1
+          fi
+
+          # Check 'description' field exists and is within limits
+          DESC=$(echo "$FRONTMATTER" | grep '^description:' | sed 's/description: *//')
+          if [ -z "$DESC" ]; then
+            echo "::error::SKILL.md missing 'description' field"
+            exit 1
+          fi
+          DESC_LEN=${#DESC}
+          if [ "$DESC_LEN" -gt 1024 ]; then
+            echo "::error::description exceeds 1024 chars ($DESC_LEN chars)"
+            exit 1
+          fi
+
+          # Check 'compatibility' field length if present
+          COMPAT=$(echo "$FRONTMATTER" | grep '^compatibility:' | sed 's/compatibility: *//')
+          if [ -n "$COMPAT" ]; then
+            COMPAT_LEN=${#COMPAT}
+            if [ "$COMPAT_LEN" -gt 500 ]; then
+              echo "::error::compatibility exceeds 500 chars ($COMPAT_LEN chars)"
+              exit 1
+            fi
+          fi
+
+          echo "✓ Frontmatter valid (name=$NAME, description=${DESC_LEN} chars)"
+
+      - name: Check SKILL.md line count
+        run: |
+          LINES=$(wc -l < fabio/SKILL.md)
+          if [ "$LINES" -gt 500 ]; then
+            echo "::error::SKILL.md exceeds 500 lines ($LINES lines). Move content to references/"
+            exit 1
+          fi
+          echo "✓ SKILL.md is $LINES lines (limit: 500)"
+
+      - name: Check required files exist
+        run: |
+          MISSING=0
+          for f in fabio/SKILL.md fabio/scripts/install.sh fabio/references/COMMANDS.md fabio/references/API-BEHAVIORS.md fabio/references/EXAMPLES.md; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Missing required file: $f"
+              MISSING=1
+            fi
+          done
+          if [ "$MISSING" -eq 1 ]; then exit 1; fi
+          echo "✓ All required files present"
+
+      - name: Validate internal links
+        run: |
+          ERRORS=0
+          # Check relative links in SKILL.md
+          grep -oP '\[.*?\]\(((?!https?://|#).*?)\)' fabio/SKILL.md | grep -oP '\(.*?\)' | tr -d '()' | while read -r link; do
+            TARGET="fabio/$link"
+            if [ ! -f "$TARGET" ] && [ ! -d "$TARGET" ]; then
+              echo "::error file=fabio/SKILL.md::Broken link: $link (resolved to $TARGET)"
+              ERRORS=1
+            fi
+          done
+          # Check relative links in reference files
+          for ref in fabio/references/*.md; do
+            grep -oP '\[.*?\]\(((?!https?://|#).*?)\)' "$ref" 2>/dev/null | grep -oP '\(.*?\)' | tr -d '()' | while read -r link; do
+              TARGET="fabio/references/$link"
+              if [ ! -f "$TARGET" ] && [ ! -d "$TARGET" ]; then
+                echo "::warning file=$ref::Potentially broken link: $link"
+              fi
+            done
+          done
+          echo "✓ Internal link check complete"
+
+  content-quality:
+    name: Content Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract and validate shell code blocks
+        run: |
+          # Extract bash code blocks from all markdown files and check syntax
+          ERRORS=0
+          for md in fabio/SKILL.md fabio/references/EXAMPLES.md; do
+            if [ ! -f "$md" ]; then continue; fi
+
+            # Extract code blocks marked as bash/shell
+            awk '/^```(bash|shell|sh)$/,/^```$/' "$md" | grep -v '^```' > /tmp/code_blocks.sh
+
+            if [ -s /tmp/code_blocks.sh ]; then
+              # Basic syntax check (ignore undefined variables since examples use $WS etc.)
+              # We use --norc and check for gross syntax errors only
+              if ! bash -n /tmp/code_blocks.sh 2>/tmp/bash_errors.txt; then
+                # Filter out expected "variable" errors from example code
+                REAL_ERRORS=$(grep -v "unexpected end of file" /tmp/bash_errors.txt | grep -v "syntax error" || true)
+                if [ -n "$(cat /tmp/bash_errors.txt)" ]; then
+                  echo "::warning file=$md::Potential shell syntax issues detected (may be false positives from example variables)"
+                  cat /tmp/bash_errors.txt
+                fi
+              fi
+            fi
+          done
+          echo "✓ Shell code block check complete"
+
+      - name: Check for duplicate commands in COMMANDS.md
+        run: |
+          # Extract command signatures (fabio <group> <subcommand>) and check for duplicates
+          grep -oP '^fabio \S+ \S+' fabio/references/COMMANDS.md | sort | uniq -d > /tmp/duplicates.txt
+          if [ -s /tmp/duplicates.txt ]; then
+            echo "::error file=fabio/references/COMMANDS.md::Duplicate command entries found:"
+            cat /tmp/duplicates.txt
+            exit 1
+          fi
+          echo "✓ No duplicate commands"
+
+      - name: Validate PascalCase values in API behaviors
+        run: |
+          # Check that documented PascalCase-requiring values are actually PascalCase
+          # Known PascalCase values that MUST NOT appear in lowercase in instructions
+          ERRORS=0
+
+          # load-table mode values
+          if grep -n 'mode.*overwrite\b' fabio/SKILL.md fabio/references/API-BEHAVIORS.md fabio/references/EXAMPLES.md 2>/dev/null | grep -iv 'Overwrite\|OVERWRITE\|must.*PascalCase\|not lowercase'; then
+            echo "::warning::Found lowercase 'overwrite' where PascalCase 'Overwrite' may be required"
+          fi
+          if grep -n 'mode.*append\b' fabio/SKILL.md fabio/references/API-BEHAVIORS.md fabio/references/EXAMPLES.md 2>/dev/null | grep -iv 'Append\|APPEND\|must.*PascalCase\|not lowercase'; then
+            echo "::warning::Found lowercase 'append' where PascalCase 'Append' may be required"
+          fi
+
+          echo "✓ PascalCase validation complete"
+
+      - name: Check version consistency
+        run: |
+          # Extract version from SKILL.md frontmatter
+          VERSION=$(sed -n '/^---$/,/^---$/p' fabio/SKILL.md | grep 'version:' | sed 's/.*version: *"\?\([^"]*\)"\?/\1/')
+          echo "Skill version: $VERSION"
+
+          # Check that README mentions the same version or is not stale
+          if grep -q "version" README.md 2>/dev/null; then
+            README_VER=$(grep -oP 'v?\d+\.\d+\.\d+' README.md | head -1 || true)
+            if [ -n "$README_VER" ] && [ "$README_VER" != "$VERSION" ] && [ "$README_VER" != "v$VERSION" ]; then
+              echo "::warning::Version mismatch: SKILL.md=$VERSION, README=$README_VER"
+            fi
+          fi
+          echo "✓ Version check complete (current: $VERSION)"
+
+      - name: Markdown structure check
+        run: |
+          # Check for common markdown issues
+          WARNINGS=0
+
+          # Check for trailing whitespace in markdown (cosmetic but indicative of quality)
+          if grep -rn ' $' fabio/SKILL.md fabio/references/*.md 2>/dev/null | head -5; then
+            echo "::notice::Trailing whitespace found in markdown files"
+          fi
+
+          # Check heading hierarchy (no skipping levels)
+          for md in fabio/SKILL.md fabio/references/*.md; do
+            if [ ! -f "$md" ]; then continue; fi
+            PREV_LEVEL=0
+            grep -n '^#' "$md" | while IFS=: read -r line_num heading; do
+              LEVEL=$(echo "$heading" | grep -oP '^#+' | wc -c)
+              LEVEL=$((LEVEL - 1))
+              if [ "$PREV_LEVEL" -gt 0 ] && [ "$LEVEL" -gt $((PREV_LEVEL + 1)) ]; then
+                echo "::notice file=$md,line=$line_num::Heading level skipped (h$PREV_LEVEL -> h$LEVEL)"
+              fi
+              PREV_LEVEL=$LEVEL
+            done
+          done
+          echo "✓ Markdown structure check complete"

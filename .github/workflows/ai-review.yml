@@ -1,0 +1,136 @@
+name: "Tier 4: AI Review"
+
+on:
+  pull_request:
+    paths:
+      - "fabio/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ai-review:
+    name: AI Review (Copilot)
+    runs-on: ubuntu-latest
+    # Only run on non-fork PRs and non-bot PRs
+    if: |
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]' &&
+      github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR diff
+        id: diff
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr diff ${{ github.event.pull_request.number }} > /tmp/pr-diff.txt
+          # Only proceed if skill files changed
+          if grep -q '^diff.*fabio/' /tmp/pr-diff.txt; then
+            echo "has_skill_changes=true" >> "$GITHUB_OUTPUT"
+            # Truncate diff for prompt context (keep under token limits)
+            head -c 50000 /tmp/pr-diff.txt > /tmp/pr-diff-truncated.txt
+          else
+            echo "has_skill_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Node.js
+        if: steps.diff.outputs.has_skill_changes == 'true'
+        uses: actions/setup-node@v4
+
+      - name: Install Copilot CLI
+        if: steps.diff.outputs.has_skill_changes == 'true'
+        run: npm install -g @github/copilot
+
+      - name: Build review prompt
+        if: steps.diff.outputs.has_skill_changes == 'true'
+        run: |
+          cat > /tmp/review-prompt.md << 'PROMPT_END'
+          # Skill PR Review
+
+          You are reviewing a PR to the fabio-skills repository. This repo contains Agent Skills
+          (agentskills.io spec) that teach AI agents how to use the fabio CLI for Microsoft Fabric.
+
+          Review the diff below and check for:
+
+          1. **Command correctness**: Are fabio CLI commands syntactically correct?
+             - Correct group/subcommand names (fabio has 69 groups, 766 subcommands)
+             - Required flags present (--workspace, --id, etc.)
+             - Flag values in correct format
+
+          2. **API behavior accuracy**: Do documented behaviors match known Fabric API patterns?
+             - PascalCase values where required (Overwrite, Append, Csv, Parquet — NOT lowercase)
+             - Correct endpoint scoping (workspace-scoped vs tenant-scoped)
+             - LRO patterns documented correctly
+
+          3. **Instruction quality**: Will these instructions help an agent succeed?
+             - Are examples composable (using $WS, $LH variables)?
+             - Are error cases and edge cases covered?
+             - Is the progressive disclosure structure maintained (SKILL.md < 500 lines)?
+
+          4. **Spec compliance** (agentskills.io):
+             - YAML frontmatter valid
+             - name field matches directory name "fabio"
+             - description under 1024 chars
+             - compatibility under 500 chars
+
+          Write a concise review. Only flag actual issues, not style preferences.
+          If everything looks good, say so briefly in 1-2 sentences.
+
+          Output your review as a markdown comment suitable for a GitHub PR.
+          Write it to /tmp/review-comment.md
+
+          ## PR Diff
+
+          PROMPT_END
+
+          cat /tmp/pr-diff-truncated.txt >> /tmp/review-prompt.md
+
+      - name: Run AI review with Copilot
+        if: steps.diff.outputs.has_skill_changes == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+        run: |
+          copilot \
+            --allow-tool='shell(cat:*)' \
+            --allow-tool='shell(wc:*)' \
+            --allow-tool='shell(head:*)' \
+            --allow-tool='shell(grep:*)' \
+            --allow-tool=read \
+            --allow-tool=write \
+            --no-ask-user < /tmp/review-prompt.md
+
+      - name: Post review comment
+        if: steps.diff.outputs.has_skill_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -f /tmp/review-comment.md ]; then
+            # Prepend header
+            REVIEW_BODY=$(cat <<'EOF'
+          ## :robot: AI Skill Review
+
+          EOF
+          )
+            REVIEW_BODY+=$(cat /tmp/review-comment.md)
+
+            # Post or update PR comment
+            EXISTING_COMMENT=$(gh api \
+              repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+              --jq '.[] | select(.body | contains("AI Skill Review")) | .id' | head -1)
+
+            if [ -n "$EXISTING_COMMENT" ]; then
+              gh api \
+                repos/${{ github.repository }}/issues/comments/$EXISTING_COMMENT \
+                -X PATCH \
+                -f body="$REVIEW_BODY"
+            else
+              gh pr comment ${{ github.event.pull_request.number }} --body "$REVIEW_BODY"
+            fi
+          else
+            echo "No review comment generated"
+          fi
