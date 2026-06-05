@@ -106,7 +106,7 @@ fabio/
 ├── scripts/
 │   └── install.sh              # Cross-platform binary installer
 └── references/
-    ├── COMMANDS.md             # Full command reference (69 groups, 766 subcommands)
+    ├── COMMANDS.md             # Full command reference (70 groups, 771 subcommands)
     ├── API-BEHAVIORS.md        # Critical API quirks agents must know
     └── EXAMPLES.md             # End-to-end workflow examples
 ```
