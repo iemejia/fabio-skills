@@ -1010,3 +1010,11 @@ When `private_link_workspace` is configured via profile, URLs are transformed fo
 ## Dataflow Execute Query
 
 `POST /workspaces/{ws}/dataflows/{id}/executeQuery` returns binary Apache Arrow IPC stream (NOT JSON). Save with `--file` flag. Requires Contributor role.
+
+## App Backend (preview)
+
+- **Endpoint pattern**: `/workspaces/{ws}/appBackends` and `/workspaces/{ws}/appBackends/{id}`
+- **Create is LRO**: `POST /workspaces/{ws}/appBackends` returns 202 and is polled to completion
+- **Hard delete**: `--hard-delete` appends `?hardDelete=true` to permanently delete (skip recycle bin)
+- **Update requires at least one field**: `--name` or `--description` is mandatory; omitting both returns `INVALID_INPUT`
+- **agent-context coverage**: `fabio agent-context` includes full `app-backend` schema with `--hard-delete` flag typed as bool

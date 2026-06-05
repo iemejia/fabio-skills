@@ -447,6 +447,17 @@ fabio spark-job-definition update-definition --workspace <ws> --id <id> --file <
 fabio spark-job-definition run --workspace <ws> --id <id>
 ```
 
+## Power Apps
+
+### app-backend
+```
+fabio app-backend list --workspace <ws>
+fabio app-backend show --workspace <ws> --id <id>
+fabio app-backend create --workspace <ws> --name <name> [--description <desc>]
+fabio app-backend update --workspace <ws> --id <id> [--name <new-name>] [--description <desc>]
+fabio app-backend delete --workspace <ws> --id <id> [--hard-delete]
+```
+
 ## Real-Time Intelligence
 
 ### eventhouse
