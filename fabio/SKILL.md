@@ -289,3 +289,4 @@ fabio lakehouse create --workspace $WS --name "NewLake" | \
 - ARM scope: `https://management.azure.com/.default`
 - Repository: `https://github.com/iemejia/fabio`
 - Releases: `https://github.com/iemejia/fabio/releases`
+
