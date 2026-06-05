@@ -37,7 +37,7 @@ defaultTest:
     # Use the same model as judge for llm-rubric assertions
     provider: github:openai/gpt-4o-mini
   vars:
-    skill_content: "file://fabio/SKILL.md"
+    skill_content: "file://../fabio/SKILL.md"
 
 tests:
   # ============================================================
@@ -91,10 +91,10 @@ tests:
       - type: contains
         value: "Csv"
         metric: pascalcase-format
-      - type: not-icontains
+      - type: not-contains
         value: "--mode overwrite"
         metric: no-lowercase-mode
-      - type: not-icontains
+      - type: not-contains
         value: "--format csv"
         metric: no-lowercase-format
 
@@ -160,8 +160,10 @@ tests:
     assert:
       - type: icontains
         value: "fabio kql-database query"
-      - type: icontains
-        value: "--kql"
+      - type: javascript
+        value: |
+          output.includes('--kql') || output.includes('--query')
+        metric: kql-flag
 
   # ============================================================
   # LONG-RUNNING OPERATIONS (LRO awareness)

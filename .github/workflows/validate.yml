@@ -153,8 +153,16 @@ jobs:
 
       - name: Check for duplicate commands in COMMANDS.md
         run: |
-          # Extract command signatures (fabio <group> <subcommand>) and check for duplicates
-          grep -oP '^fabio \S+ \S+' fabio/references/COMMANDS.md | sort | uniq -d > /tmp/duplicates.txt
+          # Extract full command signatures up to the first flag (--) or description text
+          # This handles sub-groups like "fabio git credentials show" vs "fabio git credentials update"
+          # Exclude lines with pipes (those are usage examples, not command definitions)
+          grep -P '^fabio \S+' fabio/references/COMMANDS.md \
+            | grep -v '|' \
+            | sed 's/\s\s\+.*//' \
+            | sed 's/\s*--.*//' \
+            | sed 's/\s*<.*//' \
+            | sed 's/\s*$//' \
+            | sort | uniq -d > /tmp/duplicates.txt
           if [ -s /tmp/duplicates.txt ]; then
             echo "::error file=fabio/references/COMMANDS.md::Duplicate command entries found:"
             cat /tmp/duplicates.txt
