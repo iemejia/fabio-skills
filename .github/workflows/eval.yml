@@ -30,7 +30,7 @@ jobs:
         run: npm install -g promptfoo
 
       - name: Cache promptfoo results
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/promptfoo
           key: ${{ runner.os }}-promptfoo-${{ hashFiles('tests/promptfooconfig.yaml') }}
