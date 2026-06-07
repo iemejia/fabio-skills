@@ -1,4 +1,4 @@
-# promptfoo eval configuration for fabio skill quality testing
+# Promptfoo eval configuration for fabio skill quality testing
 #
 # Tests that an LLM given the fabio SKILL.md instructions produces correct
 # CLI commands for common Fabric tasks.
@@ -6,8 +6,8 @@
 # Uses GitHub Models (included with Copilot subscription) - no separate API keys needed.
 # Auth: Set GITHUB_TOKEN env var (PAT with models:read scope, or use COPILOT_PAT).
 #
-# Run: GITHUB_TOKEN=your_pat promptfoo eval -c tests/promptfooconfig.yaml
-# View: promptfoo view
+# Run locally: GITHUB_TOKEN=your_pat promptfoo eval -c tests/promptfooconfig.yaml
+# View results: promptfoo view
 
 description: "fabio skill instruction quality"
 
