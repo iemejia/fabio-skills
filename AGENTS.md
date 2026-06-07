@@ -11,6 +11,24 @@ This repository contains [Agent Skills](https://agentskills.io) for [fabio](http
 ├── AGENTS.md                   # This file — context for AI agents working on this repo
 ├── README.md                   # User-facing docs (install via npx skills add)
 ├── LICENSE                     # Apache-2.0
+├── .github/
+│   ├── copilot-instructions.md          # General Copilot coding context for this repo
+│   ├── copilot-review-instructions.md   # Custom instructions for Copilot PR reviews
+│   ├── instructions/
+│   │   ├── skill-content.instructions.md  # Scoped: applies to fabio/SKILL.md
+│   │   └── references.instructions.md    # Scoped: applies to fabio/references/**
+│   ├── prompts/
+│   │   └── sync-fabio-skill.md          # Prompt for automated fabio release sync
+│   └── workflows/
+│       ├── copilot-review.yml           # Adds Copilot as native PR reviewer
+│       ├── semantic-pull-request.yml    # Enforces conventional commit PR titles
+│       ├── ai-review.yml               # Custom AI review with verdict (Copilot CLI)
+│       ├── validate.yml                 # Structural + content quality validation
+│       ├── eval.yml                     # Skill evaluation framework
+│       ├── gitleaks.yml                 # Secret scanning
+│       ├── dependency-review.yml        # Dependency security review
+│       ├── dependabot-auto-merge.yml    # Auto-merge dependabot PRs
+│       └── sync-with-fabio-releases.yml # Triggered on new fabio releases
 └── fabio/                      # The skill directory (name must match SKILL.md `name` field)
     ├── SKILL.md                # Required: frontmatter + instructions (<500 lines)
     ├── scripts/
@@ -71,6 +89,40 @@ When fabio releases a new version:
 3. Document new API behaviors in `references/API-BEHAVIORS.md`
 4. Add workflow examples for new features to `references/EXAMPLES.md`
 5. Update `scripts/install.sh` only if the release asset naming changes
+
+### Commit and PR conventions
+
+PR titles and commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+type(scope): description
+```
+
+Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `build`, `ci`, `revert`
+
+Common scopes for this repo: `commands`, `api-behaviors`, `examples`, `version`, `install`, `skill`
+
+Examples:
+- `feat(commands): add app-backend command reference`
+- `fix(api-behaviors): correct KQL token scope documentation`
+- `docs(examples): add deploy workflow with parameters`
+- `chore(version): bump to v0.18.0`
+
+This is enforced by CI — PRs with non-conforming titles will fail the `Semantic PR Validation` check.
+
+### Code review
+
+Every PR is automatically reviewed by:
+
+1. **Copilot (native reviewer)** — provides inline suggestions based on `.github/copilot-review-instructions.md`
+2. **AI Review (Copilot CLI)** — produces a structured approve/reject verdict for skill content changes in `fabio/`
+3. **Structural validation** — CI checks frontmatter, line counts, links, and content quality
+
+Copilot's review focuses on:
+- Agent Skills spec compliance (frontmatter, 500-line limit, progressive disclosure)
+- fabio CLI command correctness (valid groups, subcommands, flags, PascalCase values)
+- API behavior accuracy (correct scoping, LRO patterns, token requirements)
+- Content quality for agent consumption (composable examples, error coverage, no general knowledge padding)
 
 ### Validating changes
 
