@@ -1162,3 +1162,4 @@ fabio lakehouse move-file --workspace $WS --id $LH \
 fabio lakehouse move-table --workspace $WS --id $LH \
   --table raw_orders --dest-workspace $WS --dest-id $LH
 ```
+# trigger
