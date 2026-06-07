@@ -58,7 +58,7 @@ jobs:
           Review the diff below and check for:
 
           1. **Command correctness**: Are fabio CLI commands syntactically correct?
-             - Correct group/subcommand names (fabio has 69 groups, 766 subcommands)
+             - Correct group/subcommand names (fabio has 70 groups, 771 subcommands)
              - Required flags present (--workspace, --id, etc.)
              - Flag values in correct format
 
@@ -83,6 +83,12 @@ jobs:
 
           Output your review as a markdown comment suitable for a GitHub PR.
           Write it to /tmp/review-comment.md
+
+          IMPORTANT: You must also write a verdict file to /tmp/review-verdict.txt containing
+          exactly one of these words on the first line:
+          - "APPROVE" if there are no blocking issues (minor suggestions are fine)
+          - "REJECT" if there are issues that must be fixed before merging (incorrect commands,
+            wrong API behaviors, spec violations, or instructions that would cause agents to fail)
 
           ## PR Diff
 
@@ -110,12 +116,21 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -f /tmp/review-comment.md ]; then
-            # Prepend header
-            REVIEW_BODY=$(cat <<'EOF'
-          ## :robot: AI Skill Review
+            # Read verdict and append status badge to comment
+            VERDICT="UNKNOWN"
+            if [ -f /tmp/review-verdict.txt ]; then
+              VERDICT=$(head -1 /tmp/review-verdict.txt | tr -d '[:space:]')
+            fi
 
-          EOF
-          )
+            if [ "$VERDICT" = "APPROVE" ]; then
+              BADGE=":white_check_mark: **Verdict: APPROVE**"
+            else
+              BADGE=":x: **Verdict: REJECT** — issues must be fixed before merging"
+            fi
+
+            # Build comment body
+            REVIEW_BODY="## :robot: AI Skill Review"$'\n\n'
+            REVIEW_BODY+="$BADGE"$'\n\n'
             REVIEW_BODY+=$(cat /tmp/review-comment.md)
 
             # Post or update PR comment
@@ -133,4 +148,20 @@ jobs:
             fi
           else
             echo "No review comment generated"
+          fi
+
+      - name: Fail on rejected review
+        if: steps.diff.outputs.has_skill_changes == 'true'
+        run: |
+          if [ ! -f /tmp/review-verdict.txt ]; then
+            echo "::warning::No verdict file produced by AI review"
+            exit 0
+          fi
+
+          VERDICT=$(head -1 /tmp/review-verdict.txt | tr -d '[:space:]')
+          echo "AI Review verdict: $VERDICT"
+
+          if [ "$VERDICT" = "REJECT" ]; then
+            echo "::error::AI Review found blocking issues. See the PR comment for details."
+            exit 1
           fi
