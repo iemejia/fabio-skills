@@ -5,7 +5,7 @@ license: MIT
 compatibility: "Requires fabio binary (Linux/macOS/Windows x64/arm64). Authentication via `fabio auth login` (uses same Microsoft Identity platform as Azure CLI). Strongly recommended companions: az (Azure CLI) for supplementary Azure operations, gh (GitHub CLI) for release downloads. Network access to api.fabric.microsoft.com, api.powerbi.com, and onelake.dfs.fabric.microsoft.com required."
 metadata:
   author: iemejia
-  version: "0.17.0"
+  version: "0.18.0"
   repository: https://github.com/iemejia/fabio
 ---
 
@@ -54,18 +54,35 @@ cargo install --git https://github.com/iemejia/fabio.git
 
 ## Authentication
 
-fabio has its own built-in OAuth2 device code flow — no Azure CLI dependency required.
+fabio has its own built-in OAuth2 authentication — no Azure CLI dependency required.
 
 ```bash
-# Authenticate directly with fabio (opens browser for device code)
+# Interactive device code flow (headless/SSH environments)
 fabio auth login
+
+# Browser-based PKCE flow (faster; SSO on macOS Enterprise Extension)
+fabio auth login --browser
+
+# Service principal with client secret
+fabio auth login --service-principal --tenant <tid> --client-id <cid> --client-secret <secret>
+
+# Service principal with certificate (PEM or PFX)
+fabio auth login --service-principal --tenant <tid> --client-id <cid> --certificate <path> [--certificate-password <pw>]
+
+# Service principal with federated token (OIDC/GitHub Actions)
+fabio auth login --service-principal --tenant <tid> --client-id <cid> --federated-token <token>
+# Or via file:
+fabio auth login --service-principal --tenant <tid> --client-id <cid> --federated-token-file <path>
+
+# Windows WAM broker SSO (Windows only — uses current Windows account)
+fabio auth login --wam
 
 # Verify authentication status
 fabio auth status
 ```
 
 Supported credential sources (via DefaultAzureCredential chain):
-- **fabio auth login** (preferred — independent OAuth2 device code, no `az` needed)
+- **fabio auth login** (preferred — independent OAuth2, no `az` needed): device code, browser PKCE, service principal (secret/cert/federated), Windows WAM
 - Environment variables (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET`)
 - Managed Identity (when running on Azure)
 - Azure CLI (`az login`) as fallback
@@ -126,7 +143,8 @@ Errors include `hint` fields with actionable suggestions for self-correction.
 |------|---------|
 | `-o`, `--output` | `json` (default), `table`, `plain`, `csv`, `tsv` |
 | `--json` | Shorthand for `--output json` |
-| `-q`, `--query` | Dot-notation field projection |
+| `-q`, `--query` | JMESPath expression (jmespath.org) — use `[*].field` for list projection |
+| `-v`, `--verbose` | HTTP/LRO/auth diagnostics to stderr (for debugging only) |
 | `--quiet` | Suppress stdout (errors still on stderr) |
 | `--force` | Skip confirmation for destructive ops |
 | `--dry-run` | Preview mutations without executing |
@@ -189,7 +207,7 @@ These are essential for correct operation. See [references/API-BEHAVIORS.md](ref
 2. **Lakehouse tables key is `"data"`**: Unlike all other list endpoints which use `"value"`.
 3. **KQL queries split by type**: Management commands (starting with `.`) route to `/v1/rest/mgmt`; data queries to `/v2/rest/query`. Token scope is `{kusto_uri}/.default`.
 4. **Tenant-scoped endpoints**: Deployment Pipelines, Connections, Capacities, Gateways have NO `/workspaces/` prefix.
-5. **OneLake has no native rename/move**: Must copy + delete. Blob API `PUT` with `x-ms-copy-source` for server-side copy.
+5. **OneLake atomic rename for same-item moves**: `move-file` and `move-table` use `x-ms-rename-source` header for O(1) metadata rename within the same lakehouse (returns 201). Automatically falls back to copy + delete for cross-item/cross-workspace moves (403 from rename attempt).
 6. **Definition operations are LRO**: Both `getDefinition` and `updateDefinition` use 202 + Location header polling.
 7. **Notebook source must be array of strings**: The `.ipynb` format requires `source: ["line1\n", "line2\n"]`, not a single string.
 8. **SQL Database needs F4+ capacity**: F2 fails with error 18456 State 240 for TDS connections.

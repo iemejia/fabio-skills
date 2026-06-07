@@ -32,6 +32,25 @@ Critical API behaviors that agents must know for correct operation. These are ba
 | Power BI REST API | `https://api.fabric.microsoft.com/.default` (same token — reused) |
 | ARM API (capacity lifecycle) | `https://management.azure.com/.default` |
 
+### Authentication Methods
+
+All login methods share the same `~/.fabio/token_cache.json` cache. On Windows, the cache is encrypted with DPAPI (matching Azure CLI behavior).
+
+| Method | Command | Notes |
+|--------|---------|-------|
+| Device code | `fabio auth login` | Headless/SSH; user must visit URL and enter code |
+| Browser PKCE | `fabio auth login --browser` | Faster; SSO on macOS with Enterprise Extension |
+| Service principal (secret) | `fabio auth login --service-principal --tenant T --client-id C --client-secret S` | CI/CD |
+| Service principal (cert PEM) | `fabio auth login --service-principal --tenant T --client-id C --certificate /path/cert.pem` | |
+| Service principal (cert PFX) | `fabio auth login --service-principal --tenant T --client-id C --certificate /path/cert.pfx --certificate-password pw` | |
+| Federated token (OIDC) | `fabio auth login --service-principal --tenant T --client-id C --federated-token <jwt>` | GitHub Actions OIDC |
+| Federated token file | `fabio auth login --service-principal --tenant T --client-id C --federated-token-file /path/token` | File is trimmed of whitespace |
+| Windows WAM broker | `fabio auth login --wam` | Windows only; SSO with current Windows account; no browser/code |
+
+**SP error handling**: Empty strings for `--tenant`, `--client-id`, `--client-secret`, `--certificate`, `--federated-token` are treated as "not provided" with structured JSON error output.
+
+**Security**: `--verbose` output and `--dry-run` previews automatically redact sensitive JSON fields (password, client_secret, credentials, access_token, key, connectionString, etc.) before logging. Redaction is recursive and case-insensitive.
+
 ### CI/CD Authentication
 
 `DefaultAzureCredential` with client secret environment variables works correctly in CI as of v0.16.0. Set these three variables before running fabio:
@@ -41,6 +60,12 @@ export AZURE_CLIENT_ID="<app-id>"
 export AZURE_TENANT_ID="<tenant-id>"
 export AZURE_CLIENT_SECRET="<secret>"
 fabio auth status   # confirms env-var credential source
+```
+
+Or use `fabio auth login --service-principal` directly (credentials stored in token cache):
+
+```bash
+fabio auth login --service-principal --tenant $TENANT_ID --client-id $CLIENT_ID --client-secret $CLIENT_SECRET
 ```
 
 **GitHub Actions — OIDC federated credentials (recommended, secretless):**
@@ -71,6 +96,28 @@ steps:
 ```
 
 > **Fix in v0.16.0**: Prior versions panicked at runtime with "The reqwest feature is required to use the default HTTP client" when using client secret env vars. The `reqwest` and `tokio` features are now enabled on `azure_identity`/`azure_core`.
+
+## Query Filtering (--query / JMESPath)
+
+The `--query` / `-q` flag uses full **JMESPath** expressions (see [jmespath.org](https://jmespath.org)).
+
+**Breaking change from v0.17.0**: `--query` on lists now requires explicit `[*].field` syntax. Old dot-notation implicit array projection no longer works.
+
+```bash
+# List projection (REQUIRED [*] prefix for lists):
+fabio workspace list --query '[*].displayName'
+fabio lakehouse list-tables --workspace $WS --id $LH --query '[*].name'
+
+# Filter expressions:
+fabio item list --workspace $WS --query '[?type==`Notebook`].displayName'
+
+# Pipe and functions:
+fabio workspace list --query 'length(@)'
+fabio workspace list --query 'sort_by(@, &displayName)[*].id'
+
+# Nested fields still work (backward-compatible):
+fabio workspace show --id $WS --query 'data.displayName'
+```
 
 ## Endpoint Scoping
 
@@ -129,6 +176,14 @@ Lakehouse tables use `"data"` key in the response. All other Fabric list endpoin
 2. `PATCH /{ws}/{lh}/{path}?action=append&position=0` (append data)
 3. `PATCH /{ws}/{lh}/{path}?action=flush&position={size}` (flush/commit)
 
+#### Atomic Rename for Same-Item Moves (DFS API)
+```
+PUT https://onelake.dfs.fabric.microsoft.com/{ws}/{lh}/{dest-path}
+x-ms-rename-source: /{ws}/{lh}/{src-path}
+x-ms-version: 2021-06-08
+```
+Returns **201** on success (O(1) metadata operation — no data transfer). Works for **both files and directories** (entire table directory tree renamed atomically). **Fails with 403** for cross-item or cross-workspace moves (auth scope mismatch) — fabio automatically falls back to copy + delete in that case.
+
 #### Server-Side Copy (Blob API)
 ```
 PUT https://onelake.blob.fabric.microsoft.com/{ws}/{lh}/{dest-path}
@@ -136,8 +191,8 @@ x-ms-copy-source: https://onelake.blob.fabric.microsoft.com/{ws}/{lh}/{src-path}
 ```
 Returns 202 with pending status. Poll via HEAD for completion.
 
-#### No Native Rename/Move
-OneLake rejects `x-ms-rename-source` header. Move = copy + delete.
+#### No Native Rename/Move (cross-item only)
+For cross-item or cross-workspace moves, OneLake rejects `x-ms-rename-source`. These use copy + delete. Same-item moves use atomic rename (see above).
 
 #### Recursive Delete
 ```
