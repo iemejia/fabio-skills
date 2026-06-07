@@ -1,4 +1,4 @@
-# promptfoo eval configuration for fabio skill quality testing
+# Promptfoo eval configuration for fabio skill quality testing
 #
 # Tests that an LLM given the fabio SKILL.md instructions produces correct
 # CLI commands for common Fabric tasks.
