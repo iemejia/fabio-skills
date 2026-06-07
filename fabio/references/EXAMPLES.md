@@ -1158,7 +1158,8 @@ fabio lakehouse move-file --workspace $WS --id $LH \
 fabio lakehouse move-file --workspace $WS --id $LH \
   --source "Files/raw/*.parquet" --dest "Files/archive/"
 
-# Same-item table moves use atomic directory rename
+# Same-item move (same --dest-id as --id) uses atomic directory rename
+# Cross-item move (different --dest-id) uses copy+delete
 fabio lakehouse move-table --workspace $WS --id $LH \
-  --table raw_orders --dest-workspace $WS --dest-id $LH
+  --table raw_orders --dest-workspace $WS2 --dest-id $LH2
 ```
