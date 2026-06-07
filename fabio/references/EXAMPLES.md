@@ -1069,10 +1069,23 @@ fabio lakehouse query --workspace $WS --id $LH --sql "SELECT COUNT(*) FROM dbo.s
 ```bash
 # In GitHub Actions (OIDC federated token — no secrets required)
 # In workflow YAML: permissions: { id-token: write }
+
+# Fetch the OIDC JWT from GitHub's token endpoint
+OIDC_TOKEN=$(curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+  "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r .value)
+
+# Use --federated-token directly with the JWT value
 fabio auth login --service-principal \
   --tenant $AZURE_TENANT_ID \
   --client-id $AZURE_CLIENT_ID \
-  --federated-token-file $ACTIONS_ID_TOKEN_REQUEST_TOKEN
+  --federated-token "$OIDC_TOKEN"
+
+# Or write to file and use --federated-token-file
+echo "$OIDC_TOKEN" > /tmp/oidc_token
+fabio auth login --service-principal \
+  --tenant $AZURE_TENANT_ID \
+  --client-id $AZURE_CLIENT_ID \
+  --federated-token-file /tmp/oidc_token
 
 # Or using Azure Login action first (sets AZURE_* env vars):
 # - uses: azure/login@v3
@@ -1122,10 +1135,10 @@ fabio item list --workspace $WS --query '[?type==`Notebook`].displayName'
 fabio workspace list --query '[*].{name: displayName, id: id}'
 
 # Count items
-fabio workspace list --query 'length(data)'
+fabio workspace list --query 'length(@)'
 
 # Sort by field
-fabio workspace list --query 'sort_by(data, &displayName)[*].displayName'
+fabio workspace list --query 'sort_by(@, &displayName)[*].displayName'
 
 # Pipe to first element
 fabio item list --workspace $WS --query '[?type==`Lakehouse`].id | [0]' -o plain
@@ -1147,5 +1160,5 @@ fabio lakehouse move-file --workspace $WS --id $LH \
 
 # Same-item table moves use atomic directory rename
 fabio lakehouse move-table --workspace $WS --id $LH \
-  --table raw_orders --dest-workspace $WS --dest-id $LH2_SAME_WORKSPACE
+  --table raw_orders --dest-workspace $WS --dest-id $LH
 ```

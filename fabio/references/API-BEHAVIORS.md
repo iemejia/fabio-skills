@@ -101,7 +101,7 @@ steps:
 
 The `--query` / `-q` flag uses full **JMESPath** expressions (see [jmespath.org](https://jmespath.org)).
 
-**Breaking change from v0.17.0**: `--query` on lists now requires explicit `[*].field` syntax. Old dot-notation implicit array projection no longer works.
+**Breaking change in v0.18.0**: `--query` on lists now requires explicit `[*].field` syntax. Old dot-notation implicit array projection no longer works.
 
 ```bash
 # List projection (REQUIRED [*] prefix for lists):
