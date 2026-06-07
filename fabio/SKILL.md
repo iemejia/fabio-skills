@@ -206,7 +206,7 @@ These are essential for correct operation. See [references/API-BEHAVIORS.md](ref
 1. **load-table requires PascalCase**: Mode values are `Overwrite`/`Append`, format is `Csv`/`Parquet` (not lowercase). JSON format is NOT supported.
 2. **Lakehouse tables key is `"data"`**: Unlike all other list endpoints which use `"value"`.
 3. **KQL queries split by type**: Management commands (starting with `.`) route to `/v1/rest/mgmt`; data queries to `/v2/rest/query`. Token scope is `{kusto_uri}/.default`.
-4. **Tenant-scoped endpoints**: Deployment Pipelines, Connections, Capacities, Gateways have NO `/workspaces/` prefix.
+4. **Tenant-scoped endpoints**: `deployment-pipeline` (distinct from `deploy`), Connections, Capacities, Gateways have NO `/workspaces/` prefix.
 5. **OneLake atomic rename for same-item moves**: `move-file` and `move-table` use `x-ms-rename-source` header for O(1) metadata rename within the same lakehouse (returns 201). Automatically falls back to copy + delete for cross-item/cross-workspace moves (403 from rename attempt).
 6. **Definition operations are LRO**: Both `getDefinition` and `updateDefinition` use 202 + Location header polling.
 7. **Notebook source must be array of strings**: The `.ipynb` format requires `source: ["line1\n", "line2\n"]`, not a single string.
@@ -228,7 +228,7 @@ fabio has 70 command groups with 771 subcommands covering the full Fabric API su
 **Data Science**: ml-model, ml-experiment, operations-agent, spark, spark-job-definition, apache-airflow-job
 **Graph & Digital Twins**: graphql-api, graph-model, graph-query-set, digital-twin-builder, digital-twin-builder-flow, map
 **Mirroring**: mirrored-database, mirrored-catalog, mirrored-databricks-catalog, mirrored-warehouse, cosmos-db-database, snowflake-database, mounted-data-factory
-**Integration**: git, connection, deployment-pipeline, domain, job-scheduler, variable-library, user-data-function
+**Integration**: git, connection, deployment-pipeline (Fabric Deployment Pipeline resource — NOT `deploy`; tenant-scoped, no --workspace), domain, job-scheduler, variable-library, user-data-function
 **CI/CD**: deploy (plan, apply, export, init-params, validate — stateless content-hash diffing, parameter substitution, rename detection, post-deploy hooks)
 **Security**: onelake-security, managed-private-endpoint, gateway
 **Admin**: admin (49 subcommands for tenant administration — tenant settings, workspaces, items, users, domains, tags, labels, sharing links, external data shares, workloads)

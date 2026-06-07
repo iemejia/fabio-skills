@@ -267,13 +267,16 @@ tests:
         value: "--workspace"
         metric: tenant-scope-correct
 
-  - description: "OneLake rename requires copy+delete"
+  - description: "OneLake rename uses move-file (atomic for same-item)"
     vars:
       user_query: "Rename a file in OneLake from old.csv to new.csv"
     assert:
-      - type: llm-rubric
-        value: "The response correctly explains that OneLake has no native rename/move operation and suggests a copy + delete approach"
-        metric: onelake-rename-quirk
+      - type: icontains
+        value: "fabio lakehouse move-file"
+      - type: icontains
+        value: "--source"
+      - type: icontains
+        value: "--dest"
 
   # ============================================================
   # ERROR HANDLING
