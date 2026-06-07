@@ -9,7 +9,6 @@ on:
 permissions:
   contents: read
   pull-requests: write
-  models: read
 
 jobs:
   eval:
@@ -19,140 +18,24 @@ jobs:
     if: github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Install promptfoo
-        run: npm install -g promptfoo
 
       - name: Cache promptfoo results
         uses: actions/cache@v4
         with:
-          path: ~/.cache/promptfoo
+          path: .promptfoo-cache
           key: ${{ runner.os }}-promptfoo-${{ hashFiles('tests/promptfooconfig.yaml') }}
           restore-keys: |
             ${{ runner.os }}-promptfoo-
 
-      - name: Run eval on current branch
-        env:
-          GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
-        run: |
-          promptfoo eval \
-            -c tests/promptfooconfig.yaml \
-            --output tests/results-current.json \
-            --no-progress-bar
-
-      - name: Checkout base branch for comparison
-        uses: actions/checkout@v6
+      - name: Run promptfoo evaluation
+        uses: promptfoo/promptfoo-action@v1
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          path: base-branch
-
-      - name: Run eval on base branch
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          config: 'tests/promptfooconfig.yaml'
+          use-config-prompts: 'true'
+          cache-path: '.promptfoo-cache'
+          no-share: true
+          no-progress-bar: true
+          fail-on-threshold: '80'
         env:
           GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
-        run: |
-          # Only run if the base has a promptfoo config
-          if [ -f base-branch/tests/promptfooconfig.yaml ]; then
-            cd base-branch
-            promptfoo eval \
-              -c tests/promptfooconfig.yaml \
-              --output ../tests/results-base.json \
-              --no-progress-bar
-          else
-            echo "No eval config in base branch, skipping comparison"
-            echo '{"results":{"stats":{"successes":0,"failures":0}}}' > tests/results-base.json
-          fi
-
-      - name: Compare results and post comment
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Extract pass rates
-          CURRENT_PASS=$(jq '.results.stats.successes' tests/results-current.json)
-          CURRENT_FAIL=$(jq '.results.stats.failures' tests/results-current.json)
-          CURRENT_TOTAL=$((CURRENT_PASS + CURRENT_FAIL))
-          if [ "$CURRENT_TOTAL" -eq 0 ]; then
-            CURRENT_RATE="N/A"
-          else
-            CURRENT_RATE=$(echo "scale=1; $CURRENT_PASS * 100 / $CURRENT_TOTAL" | bc)%
-          fi
-
-          BASE_PASS=$(jq '.results.stats.successes' tests/results-base.json)
-          BASE_FAIL=$(jq '.results.stats.failures' tests/results-base.json)
-          BASE_TOTAL=$((BASE_PASS + BASE_FAIL))
-          if [ "$BASE_TOTAL" -eq 0 ]; then
-            BASE_RATE="N/A"
-          else
-            BASE_RATE=$(echo "scale=1; $BASE_PASS * 100 / $BASE_TOTAL" | bc)%
-          fi
-
-          # Determine status emoji
-          if [ "$CURRENT_FAIL" -eq 0 ]; then
-            STATUS="pass"
-            ICON="white_check_mark"
-          elif [ "$CURRENT_FAIL" -le "$BASE_FAIL" ]; then
-            STATUS="neutral"
-            ICON="yellow_circle"
-          else
-            STATUS="regression"
-            ICON="red_circle"
-          fi
-
-          # Build comment body
-          COMMENT=$(cat <<EOF
-          ## :test_tube: Skill Eval Results
-
-          | Metric | Base | PR |
-          |--------|------|-----|
-          | Pass rate | ${BASE_RATE} (${BASE_PASS}/${BASE_TOTAL}) | ${CURRENT_RATE} (${CURRENT_PASS}/${CURRENT_TOTAL}) |
-          | Failures | ${BASE_FAIL} | ${CURRENT_FAIL} |
-
-          :${ICON}: **Status: ${STATUS}**
-
-          <details>
-          <summary>Failed assertions (if any)</summary>
-
-          \`\`\`json
-          $(jq '[.results.results[] | select(.success == false) | {description: .description, failures: [.assertions[] | select(.pass == false) | .type + ": " + (.value // "")]}]' tests/results-current.json)
-          \`\`\`
-          </details>
-
-          <details>
-          <summary>What is this?</summary>
-
-          This eval tests that an LLM given the fabio skill instructions produces correct CLI commands for common tasks. It catches regressions in instruction quality.
-
-          Run locally: \`GITHUB_TOKEN=your_pat promptfoo eval -c tests/promptfooconfig.yaml && promptfoo view\`
-          </details>
-          EOF
-          )
-
-          # Post or update PR comment
-          EXISTING_COMMENT=$(gh api \
-            repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
-            --jq '.[] | select(.body | contains("Skill Eval Results")) | .id' | head -1)
-
-          if [ -n "$EXISTING_COMMENT" ]; then
-            gh api \
-              repos/${{ github.repository }}/issues/comments/$EXISTING_COMMENT \
-              -X PATCH \
-              -f body="$COMMENT"
-          else
-            gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT"
-          fi
-
-      - name: Fail on regression
-        run: |
-          CURRENT_FAIL=$(jq '.results.stats.failures' tests/results-current.json)
-          BASE_FAIL=$(jq '.results.stats.failures' tests/results-base.json)
-
-          if [ "$CURRENT_FAIL" -gt "$BASE_FAIL" ]; then
-            echo "::error::Eval regression detected: failures increased from $BASE_FAIL to $CURRENT_FAIL"
-            exit 1
-          fi
-          echo "Eval passed: $CURRENT_FAIL failures (base had $BASE_FAIL)"
