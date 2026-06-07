@@ -1061,3 +1061,91 @@ fabio lakehouse table-schema --workspace $WS --id $LH --table sales
 # Query lakehouse via SQL endpoint
 fabio lakehouse query --workspace $WS --id $LH --sql "SELECT COUNT(*) FROM dbo.sales"
 ```
+
+## Authentication Workflows
+
+### CI/CD with Service Principal (GitHub Actions OIDC)
+
+```bash
+# In GitHub Actions (OIDC federated token — no secrets required)
+# In workflow YAML: permissions: { id-token: write }
+fabio auth login --service-principal \
+  --tenant $AZURE_TENANT_ID \
+  --client-id $AZURE_CLIENT_ID \
+  --federated-token-file $ACTIONS_ID_TOKEN_REQUEST_TOKEN
+
+# Or using Azure Login action first (sets AZURE_* env vars):
+# - uses: azure/login@v3
+# Then env vars are picked up by DefaultAzureCredential automatically
+fabio auth status
+```
+
+### CI/CD with Service Principal (Client Secret)
+
+```bash
+fabio auth login --service-principal \
+  --tenant $TENANT_ID \
+  --client-id $CLIENT_ID \
+  --client-secret $CLIENT_SECRET
+
+fabio auth status
+fabio workspace list
+```
+
+### Browser PKCE (Interactive / macOS SSO)
+
+```bash
+# Opens system browser — SSO on macOS with Enterprise SSO Extension
+fabio auth login --browser
+fabio auth status
+```
+
+### Windows WAM Broker SSO
+
+```powershell
+# Windows only — uses current Windows account, no browser or device code needed
+fabio auth login --wam
+fabio auth status
+```
+
+## JMESPath Query Examples
+
+```bash
+# List projection — MUST use [*].field for lists (breaking change in v0.18.0)
+fabio workspace list --query '[*].displayName'
+fabio lakehouse list-tables --workspace $WS --id $LH --query '[*].name'
+
+# Filter by field value
+fabio item list --workspace $WS --query '[?type==`Notebook`].displayName'
+
+# Multiselect hash (reshape output)
+fabio workspace list --query '[*].{name: displayName, id: id}'
+
+# Count items
+fabio workspace list --query 'length(data)'
+
+# Sort by field
+fabio workspace list --query 'sort_by(data, &displayName)[*].displayName'
+
+# Pipe to first element
+fabio item list --workspace $WS --query '[?type==`Lakehouse`].id | [0]' -o plain
+
+# Nested field access (backward-compatible)
+fabio workspace show --id $WS --query 'data.capacityId'
+```
+
+## Atomic File/Table Move (Same-Item)
+
+```bash
+# Same-item file moves use atomic x-ms-rename-source (O(1), no data transfer)
+fabio lakehouse move-file --workspace $WS --id $LH \
+  --source "Files/staging/data.csv" --dest "Files/processed/data.csv"
+
+# Output includes "method": "rename" for same-item, "copy_delete" for cross-item
+fabio lakehouse move-file --workspace $WS --id $LH \
+  --source "Files/raw/*.parquet" --dest "Files/archive/"
+
+# Same-item table moves use atomic directory rename
+fabio lakehouse move-table --workspace $WS --id $LH \
+  --table raw_orders --dest-workspace $WS --dest-id $LH2_SAME_WORKSPACE
+```

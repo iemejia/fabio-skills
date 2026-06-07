@@ -1,12 +1,38 @@
 # fabio Command Reference
 
-Complete command reference organized by functional area (69 groups, 766 subcommands).
+Complete command reference organized by functional area (70 groups, 771 subcommands).
+
+## Global Flags
+
+These flags apply to all commands:
+
+```
+-o, --output <format>       Output format: json (default), table, plain, csv, tsv
+-q, --query <jmespath>      JMESPath expression — requires [*].field for list projection
+-v, --verbose               HTTP/LRO/auth diagnostics to stderr (for debugging only — do not use in normal agent flows)
+    --quiet                 Suppress stdout (errors still go to stderr)
+    --dry-run               Preview mutations without executing
+    --limit <n>             Truncate list results client-side
+    --all                   Auto-paginate all results
+    --continuation-token    Resume pagination from a specific token
+    --profile <name>        Use a named profile
+    --lro-timeout <secs>    Custom LRO polling timeout (default 120s)
+    --hard-delete           Permanently delete (skip recycle bin) — supported on all 38 item type deletes
+```
+
+> **Note for AI agents**: Use `--verbose` only for debugging HTTP issues. It emits request/response traces to stderr and does NOT affect stdout JSON output.
 
 ## Core Commands
 
 ### auth
 ```
-fabio auth login             Log in (validates Azure credentials)
+fabio auth login             Log in using device code (headless/SSH)
+fabio auth login --browser   Log in via browser PKCE (faster; SSO on macOS Enterprise Extension)
+fabio auth login --service-principal --tenant <tid> --client-id <cid> --client-secret <secret>
+fabio auth login --service-principal --tenant <tid> --client-id <cid> --certificate <path> [--certificate-password <pw>]
+fabio auth login --service-principal --tenant <tid> --client-id <cid> --federated-token <token>
+fabio auth login --service-principal --tenant <tid> --client-id <cid> --federated-token-file <path>
+fabio auth login --wam       Log in via Windows WAM broker SSO (Windows only)
 fabio auth logout            Log out and clear cached credentials
 fabio auth status            Show authentication status and credential source
 ```
@@ -109,10 +135,10 @@ fabio lakehouse download --workspace <ws> --id <id> --path <remote> --dest <loca
 fabio lakehouse upload-table --workspace <ws> --id <id> --source <file> --table <name> --mode <Overwrite|Append> --format <Csv|Parquet>
 fabio lakehouse load-table --workspace <ws> --id <id> --path <Files/...> --table <name> --mode <Overwrite|Append> --format <Csv|Parquet>
 fabio lakehouse copy-file --workspace <ws> --id <id> --source <glob> --dest-workspace <ws2> --dest-id <lh2> --dest <path>
-fabio lakehouse move-file --workspace <ws> --id <id> --source <glob> --dest <path>
+fabio lakehouse move-file --workspace <ws> --id <id> --source <glob> --dest <path>     # atomic rename for same-item, copy+delete for cross-item
 fabio lakehouse delete-file --workspace <ws> --id <id> --path <file>
 fabio lakehouse copy-table --workspace <ws> --id <id> --table <name> --dest-workspace <ws2> --dest-id <lh2>
-fabio lakehouse move-table --workspace <ws> --id <id> --table <name> --dest-workspace <ws2> --dest-id <lh2>
+fabio lakehouse move-table --workspace <ws> --id <id> --table <name> --dest-workspace <ws2> --dest-id <lh2>   # atomic directory rename for same-item, copy+delete for cross-item
 fabio lakehouse delete-table --workspace <ws> --id <id> --table <name>
 fabio lakehouse sync --workspace <ws> --id <id> --dest-workspace <ws2> --dest-id <lh2> [--delete]
 fabio lakehouse create-shortcut --workspace <ws> --id <id> --name <name> --path <path> --target-type <adls|s3|onelake> --location <url> [--subpath <sub>]
@@ -292,7 +318,7 @@ fabio data-agent show --workspace <ws> --id <id>
 fabio data-agent create --workspace <ws> --name <name>
 fabio data-agent update --workspace <ws> --id <id> --name <new-name>
 fabio data-agent delete --workspace <ws> --id <id>
-fabio data-agent query --workspace <ws> --id <id> --message <text>
+fabio data-agent query --workspace <ws> --id <id> --message <text> [--show-steps]
 fabio data-agent get-definition --workspace <ws> --id <id>
 fabio data-agent update-definition --workspace <ws> --id <id> --file <path>
 fabio data-agent publish --workspace <ws> --id <id>
