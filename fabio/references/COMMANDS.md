@@ -26,13 +26,15 @@ These flags apply to all commands:
 
 ### auth
 ```
-fabio auth login             Log in using device code (headless/SSH)
-fabio auth login --browser   Log in via browser PKCE (faster; SSO on macOS Enterprise Extension)
-fabio auth login --service-principal --tenant <tid> --client-id <cid> --client-secret <secret>
-fabio auth login --service-principal --tenant <tid> --client-id <cid> --certificate <path> [--certificate-password <pw>]
-fabio auth login --service-principal --tenant <tid> --client-id <cid> --federated-token <token>
-fabio auth login --service-principal --tenant <tid> --client-id <cid> --federated-token-file <path>
-fabio auth login --wam       Log in via Windows WAM broker SSO (Windows only)
+fabio auth login             Log in (device code default; see variants below)
+  Variants:
+    (no flags)               Device code flow (headless/SSH)
+    --browser                Browser PKCE (faster; SSO on macOS Enterprise Extension)
+    --service-principal --tenant <tid> --client-id <cid> --client-secret <secret>
+    --service-principal --tenant <tid> --client-id <cid> --certificate <path> [--certificate-password <pw>]
+    --service-principal --tenant <tid> --client-id <cid> --federated-token <token>
+    --service-principal --tenant <tid> --client-id <cid> --federated-token-file <path>
+    --wam                    Windows WAM broker SSO (Windows only)
 fabio auth logout            Log out and clear cached credentials
 fabio auth status            Show authentication status and credential source
 ```
