@@ -30,6 +30,7 @@ jobs:
       - name: Run promptfoo evaluation
         uses: promptfoo/promptfoo-action@v1
         with:
+          # Used by the action to post PR comments and list changed files
           github-token: ${{ secrets.GITHUB_TOKEN }}
           config: 'tests/promptfooconfig.yaml'
           use-config-prompts: 'true'
@@ -38,4 +39,5 @@ jobs:
           no-progress-bar: true
           fail-on-threshold: '80'
         env:
+          # Passed through to promptfoo for GitHub Models API access (provider auth)
           GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
