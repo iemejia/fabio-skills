@@ -203,7 +203,7 @@ DELETE https://onelake.dfs.fabric.microsoft.com/{ws}/{lh}/Tables/{name}?recursiv
 When `directory` parameter is specified in DFS listing, paths appear doubled (e.g., `Files/Files/myfile.csv`). fabio normalizes this automatically. Use root listing (no `directory` param) to get real paths prefixed with item ID.
 
 ### Sync Command
-Compares source and destination using ETag/MD5. Only copies new/modified files. `--delete` removes files in destination that don't exist in source.
+Compares source and destination using ETag/MD5. Only copies new/modified files. `--delete` removes files in destination that don't exist in source. Supports rsync-inspired flags (`--include`, `--exclude`, `--size-only`, `--no-overwrite`, `--force`, `--no-recursive`, `--max-delete`, `--existing`, `--remove-source-files`, `--min-size`, `--max-size`, `--itemize`) and `--local` for local-to-remote sync. See the full behavior section at the end of this file.
 
 #### Rename Detection
 When `--delete` is active, `lakehouse sync` detects renamed/moved files and performs atomic O(1) renames at the destination instead of copy + delete:
@@ -1127,3 +1127,119 @@ When `private_link_workspace` is configured via profile, URLs are transformed fo
 - **Hard delete**: `--hard-delete` appends `?hardDelete=true` to permanently delete (skip recycle bin)
 - **Update requires at least one field**: `--name` or `--description` is mandatory; omitting both returns `INVALID_INPUT`
 - **agent-context coverage**: `fabio agent-context` includes full `app-backend` schema with `--hard-delete` flag typed as bool
+
+## Enhanced Error Output (v0.20.0+)
+
+Structured error responses now include additional diagnostic fields from the Fabric API:
+```json
+{
+  "error": {
+    "code": "API_ERROR",
+    "message": "...",
+    "requestId": "abc-123",
+    "moreDetails": [{"code": "Inner_Error", "message": "..."}],
+    "relatedResource": {"resourceId": "<uuid>", "resourceType": "Lakehouse"}
+  }
+}
+```
+- `requestId` — Server-assigned correlation ID (include in support tickets)
+- `moreDetails` — Array of nested error codes; may provide the root cause
+- `relatedResource` — Resource involved in the error (absent when not applicable)
+- All extra fields use `skip_serializing_if = None` — backward compatible (not present when null)
+
+## Pagination: continuationUri Preference
+
+When a list response contains both `continuationToken` and `continuationUri`, fabio prefers `continuationUri` (the full server-provided URL) over constructing the next URL from the token. This improves reliability with APIs that use opaque URLs. Falls back to token-based construction if URI is absent.
+
+## Lakehouse Sync: rsync-Inspired Flags
+
+The `lakehouse sync` command supports rsync-inspired filtering and control flags:
+
+### Filtering
+- `--include <patterns>` — Semicolon-separated glob patterns; only matching files are synced (matches filename and full relative path)
+- `--exclude <patterns>` — Semicolon-separated glob patterns; matching files are skipped (applied after include)
+- `--min-size <size>` / `--max-size <size>` — Filter by file size; supports K/M/G suffixes (e.g., `--min-size 1K`, `--max-size 100M`)
+- `--no-recursive` — Sync only top-level files (skip subdirectories)
+
+### Copy Modes
+- `--size-only` — Compare files by size only (skip ETag/checksum comparison); output `"strategy": "size-only"`
+- `--no-overwrite` — Only copy files not present at destination; output `"strategy": "no-overwrite"`
+- `--force` — Mirror mode: copy all source files regardless of content match; output `"strategy": "force"`
+- `--existing` — Only update files already present at destination (don't create new files)
+
+### Safety & Observability
+- `--max-delete=N` — Skip ALL deletions if the count would exceed N; output includes `"deletionsSkipped": true`
+- `--remove-source-files` — Delete source files after successful transfer (move semantics); output includes `"sourceRemoved": N`
+- `--itemize` — Output per-file actions on stderr: `[copy]`, `[rename]`, `[delete]`, `[skip]`
+
+### Server-Side Dedup
+When copying, sync checks if any existing destination file has the same content hash. If so, performs a same-lakehouse copy (faster). Output includes `"dedupCopied"` count.
+
+## Lakehouse Sync: Local-to-Remote (--local)
+
+`--local <dir>` syncs a local directory to a remote lakehouse path. Mutually exclusive with `--source-workspace`/`--source-id`/`--source-path`.
+
+```bash
+fabio lakehouse sync --local ./data \
+  --dest-workspace $WS --dest-id $LH --dest-path Files/data
+```
+
+- Default comparison: size (local files have no ETags)
+- `--checksum`: computes local MD5, compares with remote Content-MD5 via HEAD
+- Parallel uploads via DFS (create+append+flush with MD5 stored for future comparisons)
+- All filtering flags work: `--include`, `--exclude`, `--min-size`, `--max-size`, `--no-recursive`
+- Rename detection and server-side dedup are skipped (not applicable for local sources)
+- `--remove-source-files` deletes local files after successful upload (move semantics)
+
+**Use as superset of upload**: `fabio lakehouse sync --local ./dir --force` is equivalent to `fabio lakehouse upload` but with structured output and all sync flags.
+
+## Copy Job Reset
+
+```bash
+# Reset all entities for re-processing
+fabio copy-job reset --workspace $WS --id $ID --all
+
+# Reset specific entities
+fabio copy-job reset --workspace $WS --id $ID --entity-ids "uuid1,uuid2"
+```
+- `--all` and `--entity-ids` are mutually exclusive; omitting both returns `INVALID_INPUT`
+- Endpoint: `POST /workspaces/{ws}/copyJobs/{id}/resetCopyJob`
+- No LRO — returns immediately
+
+## Gateway Lifecycle Commands
+
+VNet gateway lifecycle management (requires gateway Admin role):
+- **check-status**: `GET /gateways/{id}/checkStatus` — returns connectivity status
+- **check-member-status**: `GET /gateways/{id}/members/{memberId}/checkStatus` — individual member (on-premises)
+- **restart**: `POST /gateways/{id}/restart` with empty body; LRO
+- **shutdown**: `POST /gateways/{id}/shutdown` with empty body; LRO
+
+Both `restart` and `shutdown` use LRO polling and require the caller to have gateway Admin role.
+
+## Data Build Tool Job (preview)
+
+- **Item type**: `DataBuildToolJob` — dbt (Data Build Tool) integration
+- **Endpoint pattern**: `/workspaces/{ws}/dataBuildToolJobs/{id}`
+- **Run endpoint**: `POST /workspaces/{ws}/dataBuildToolJobs/{id}/jobs/execute/instances` (item-specific path, NOT the generic `/jobs/instances`)
+- **Run supports `--wait`/`--timeout`/`--cancel-on-timeout`**: Same polling pattern as notebook run (5s interval, default 600s timeout)
+- **Create/getDefinition/updateDefinition are all LRO**: Standard 202 + polling pattern
+- **In deploy ordering**: Positioned after CopyJob in `DEPLOY_ORDER` (45 total types)
+
+## OrgApp & OrgAppAudience
+
+- **OrgApp** (`org-app`): Organizational App — published app packages for workspace content distribution
+  - Endpoint: `/workspaces/{ws}/orgApps/{id}`
+  - Full CRUD + get-definition/update-definition; all LRO
+- **OrgAppAudience** (`org-app-audience`): Audience targeting for Organizational Apps
+  - Endpoint: `/workspaces/{ws}/orgAppAudiences/{id}`
+  - Full CRUD + get-definition/update-definition; all LRO
+- Both added to `DEPLOY_ORDER` (45 total types — positioned after visualization items)
+
+## Deploy: Lakehouse Shortcut Reconciliation
+
+The deploy engine now reconciles lakehouse shortcuts as a post-deploy hook:
+- Reads `shortcuts.metadata.json` from Lakehouse source directories (if present)
+- Lists currently deployed shortcuts via `GET /items/{id}/shortcuts`
+- Deletes orphan shortcuts (deployed but not in source definition)
+- Creates/overwrites shortcuts from the source definition (CreateOrOverwrite policy)
+- Shortcut failures are non-fatal (reported in `post_hooks` output; controlled by `--no-post-hooks`)

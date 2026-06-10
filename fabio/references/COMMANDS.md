@@ -1,6 +1,6 @@
 # fabio Command Reference
 
-Complete command reference organized by functional area (70 groups, 771 subcommands).
+Complete command reference organized by functional area (74 groups, 790+ subcommands).
 
 ## Global Flags
 
@@ -142,7 +142,8 @@ fabio lakehouse delete-file --workspace <ws> --id <id> --path <file>
 fabio lakehouse copy-table --workspace <ws> --id <id> --table <name> --dest-workspace <ws2> --dest-id <lh2>
 fabio lakehouse move-table --workspace <ws> --id <id> --table <name> --dest-workspace <ws2> --dest-id <lh2>   # atomic rename when dest-id == id (same lakehouse), copy+delete otherwise
 fabio lakehouse delete-table --workspace <ws> --id <id> --table <name>
-fabio lakehouse sync --workspace <ws> --id <id> --dest-workspace <ws2> --dest-id <lh2> [--delete]
+fabio lakehouse sync --workspace <ws> --id <id> --dest-workspace <ws2> --dest-id <lh2> [--delete] [--checksum] [--include <patterns>] [--exclude <patterns>] [--size-only] [--no-overwrite] [--force] [--no-recursive] [--max-delete <n>] [--existing] [--remove-source-files] [--min-size <size>] [--max-size <size>] [--itemize]
+fabio lakehouse sync --local <dir> --dest-workspace <ws> --dest-id <lh> --dest-path <path> [--checksum] [--include <patterns>] [--exclude <patterns>] [--min-size <size>] [--max-size <size>] [--no-recursive] [--remove-source-files] [--itemize]
 fabio lakehouse create-shortcut --workspace <ws> --id <id> --name <name> --path <path> --target-type <adls|s3|onelake> --location <url> [--subpath <sub>]
 fabio lakehouse get-shortcut --workspace <ws> --id <id> --name <name> --path <path>
 fabio lakehouse delete-shortcut --workspace <ws> --id <id> --name <name> --path <path>
@@ -274,6 +275,8 @@ fabio copy-job update --workspace <ws> --id <id> --name <new-name>
 fabio copy-job delete --workspace <ws> --id <id>
 fabio copy-job get-definition --workspace <ws> --id <id>
 fabio copy-job update-definition --workspace <ws> --id <id> --file <path>
+fabio copy-job reset --workspace <ws> --id <id> --all                      Reset all entities for re-processing (mutually exclusive with --entity-ids)
+fabio copy-job reset --workspace <ws> --id <id> --entity-ids <uuid,uuid>   Reset specific entities by UUID
 ```
 
 ### dataflow
@@ -475,6 +478,22 @@ fabio spark-job-definition update-definition --workspace <ws> --id <id> --file <
 fabio spark-job-definition run --workspace <ws> --id <id>
 ```
 
+### data-build-tool-job
+```
+fabio data-build-tool-job list --workspace <ws>
+fabio data-build-tool-job show --workspace <ws> --id <id>
+fabio data-build-tool-job create --workspace <ws> --name <name> [--description <desc>]
+fabio data-build-tool-job update --workspace <ws> --id <id> [--name <new-name>] [--description <desc>]
+fabio data-build-tool-job delete --workspace <ws> --id <id>
+fabio data-build-tool-job get-definition --workspace <ws> --id <id>
+fabio data-build-tool-job update-definition --workspace <ws> --id <id> --file <path>
+fabio data-build-tool-job run --workspace <ws> --id <id> [--wait] [--timeout <secs>] [--cancel-on-timeout]
+```
+Notes:
+- Preview item type (dbt integration)
+- `run` uses item-specific job endpoint (not the generic items endpoint)
+- `--wait` polls every 5s; default timeout 600s; terminal statuses: Completed, Failed, Cancelled
+
 ## Power Apps
 
 ### app-backend
@@ -484,6 +503,28 @@ fabio app-backend show --workspace <ws> --id <id>
 fabio app-backend create --workspace <ws> --name <name> [--description <desc>]
 fabio app-backend update --workspace <ws> --id <id> [--name <new-name>] [--description <desc>]
 fabio app-backend delete --workspace <ws> --id <id> [--hard-delete]
+```
+
+### org-app
+```
+fabio org-app list --workspace <ws>
+fabio org-app show --workspace <ws> --id <id>
+fabio org-app create --workspace <ws> --name <name> [--description <desc>]
+fabio org-app update --workspace <ws> --id <id> [--name <new-name>] [--description <desc>]
+fabio org-app delete --workspace <ws> --id <id>
+fabio org-app get-definition --workspace <ws> --id <id>
+fabio org-app update-definition --workspace <ws> --id <id> --file <path>
+```
+
+### org-app-audience
+```
+fabio org-app-audience list --workspace <ws>
+fabio org-app-audience show --workspace <ws> --id <id>
+fabio org-app-audience create --workspace <ws> --name <name> [--description <desc>]
+fabio org-app-audience update --workspace <ws> --id <id> [--name <new-name>] [--description <desc>]
+fabio org-app-audience delete --workspace <ws> --id <id>
+fabio org-app-audience get-definition --workspace <ws> --id <id>
+fabio org-app-audience update-definition --workspace <ws> --id <id> --file <path>
 ```
 
 ## Real-Time Intelligence
@@ -958,6 +999,10 @@ fabio gateway add-role-assignment --id <id> --principal <pid> --principal-type <
 fabio gateway show-role-assignment --id <id> --assignment-id <aid>
 fabio gateway update-role-assignment --id <id> --assignment-id <aid> --role <role>
 fabio gateway delete-role-assignment --id <id> --assignment-id <aid>
+fabio gateway check-status --id <id>                Check VNet gateway connectivity status
+fabio gateway check-member-status --id <id> --member-id <mid>   Check individual member connectivity (on-premises)
+fabio gateway restart --id <id>                     Restart a VNet gateway (LRO, requires Admin)
+fabio gateway shutdown --id <id>                    Shut down a VNet gateway (LRO, requires Admin)
 ```
 
 ### onelake-security

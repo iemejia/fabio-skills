@@ -1,11 +1,11 @@
 ---
 name: fabio
-description: "Manage Microsoft Fabric artifacts and data using the fabio CLI - an agent-first command-line tool with 771 subcommands across 70 groups, structured JSON output, composable piping, and machine-readable errors. Use when working with Fabric workspaces, lakehouses, warehouses, notebooks, eventhouses, semantic models, reports, data pipelines, KQL databases, eventstreams, deploy CI/CD, REST passthrough, Power BI API, capacity lifecycle, app-backend (Power Apps), or any Fabric REST API resource. Covers CRUD operations, file upload/download, SQL/DAX/KQL queries, Git integration, deployment pipelines, CI/CD deploy (plan/apply/export/validate), natural language to KQL, and administration."
+description: "Manage Microsoft Fabric artifacts and data using the fabio CLI - an agent-first command-line tool with 790+ subcommands across 74 groups, structured JSON output, composable piping, and machine-readable errors. Use when working with Fabric workspaces, lakehouses, warehouses, notebooks, eventhouses, semantic models, reports, data pipelines, KQL databases, eventstreams, deploy CI/CD, REST passthrough, Power BI API, capacity lifecycle, app-backend (Power Apps), data-build-tool-job (dbt), org-app (Organizational App), or any Fabric REST API resource. Covers CRUD operations, file upload/download, SQL/DAX/KQL queries, Git integration, deployment pipelines, CI/CD deploy (plan/apply/export/validate), natural language to KQL, and administration."
 license: MIT
 compatibility: "Requires fabio binary (Linux/macOS/Windows x64/arm64). Authentication via `fabio auth login` (uses same Microsoft Identity platform as Azure CLI). Strongly recommended companions: az (Azure CLI) for supplementary Azure operations, gh (GitHub CLI) for release downloads. Network access to api.fabric.microsoft.com, api.powerbi.com, and onelake.dfs.fabric.microsoft.com required."
 metadata:
   author: iemejia
-  version: "0.19.0"
+  version: "0.20.0"
   repository: https://github.com/iemejia/fabio
 ---
 
@@ -13,7 +13,7 @@ metadata:
 
 ## Overview
 
-`fabio` is a CLI designed for AI agents first, humans second. It manages the entire Microsoft Fabric platform (771 subcommands across 70 groups) from the command line with structured JSON output, composable stdin/stdout piping, machine-readable error codes, and non-interactive operation.
+`fabio` is a CLI designed for AI agents first, humans second. It manages the entire Microsoft Fabric platform (790+ subcommands across 74 groups) from the command line with structured JSON output, composable stdin/stdout piping, machine-readable error codes, and non-interactive operation.
 
 ## Installation
 
@@ -218,19 +218,19 @@ These are essential for correct operation. See [references/API-BEHAVIORS.md](ref
 
 ## Command Groups
 
-fabio has 70 command groups with 771 subcommands covering the full Fabric API surface. See [references/COMMANDS.md](references/COMMANDS.md) for the complete reference.
+fabio has 74 command groups with 790+ subcommands covering the full Fabric API surface. See [references/COMMANDS.md](references/COMMANDS.md) for the complete reference.
 
 **Core**: auth, workspace, item, lakehouse, capacity, catalog
 **Data & Compute**: notebook, warehouse, sql-database, sql-endpoint, data-pipeline, copy-job, dataflow, environment, data-agent, ontology
 **Analytics**: report, semantic-model (including 12 Power BI API commands: clone, export-pbix, import-pbix, list-users, etc.), paginated-report, dashboard, datamart
 **Real-Time Intelligence**: eventhouse, eventstream, kql-database, kql-queryset, kql-dashboard, reflex, anomaly-detector, event-schema-set, rti (nl-to-kql)
-**Power Apps**: app-backend (preview — Power Apps backend services: list, show, create [LRO], update, delete [--hard-delete])
-**Data Science**: ml-model, ml-experiment, operations-agent, spark, spark-job-definition, apache-airflow-job
+**Power Apps & Apps**: app-backend (preview — Power Apps backend services: list, show, create [LRO], update, delete [--hard-delete]), org-app (Organizational App packages), org-app-audience (audience targeting for Org Apps)
+**Data Science**: ml-model, ml-experiment, operations-agent, spark, spark-job-definition, apache-airflow-job, data-build-tool-job (dbt integration, preview: list/show/create/update/delete/get-definition/update-definition/run [--wait])
 **Graph & Digital Twins**: graphql-api, graph-model, graph-query-set, digital-twin-builder, digital-twin-builder-flow, map
 **Mirroring**: mirrored-database, mirrored-catalog, mirrored-databricks-catalog, mirrored-warehouse, cosmos-db-database, snowflake-database, mounted-data-factory
 **Integration**: git, connection, deployment-pipeline (Fabric Deployment Pipeline resource — NOT `deploy`; tenant-scoped, no --workspace), domain, job-scheduler, variable-library, user-data-function
 **CI/CD**: deploy (plan, apply, export, init-params, validate — stateless content-hash diffing, parameter substitution, rename detection, post-deploy hooks)
-**Security**: onelake-security, managed-private-endpoint, gateway
+**Security**: onelake-security, managed-private-endpoint, gateway (including lifecycle: check-status, check-member-status, restart [LRO], shutdown [LRO])
 **Admin**: admin (49 subcommands for tenant administration — tenant settings, workspaces, items, users, domains, tags, labels, sharing links, external data shares, workloads)
 **Tooling**: profile, jobs, feedback, agent-context, operation, rest (raw REST passthrough with Power BI API support), completions (shell tab-completion scripts)
 
@@ -265,7 +265,7 @@ Key behaviors:
 - **Rename detection**: Two-pass matching by (type, name) then by logicalId
 - **Logical ID resolution**: Items referencing each other by logicalId are resolved at apply time
 - **Parallel execution**: Bounded concurrency (default 8) per type batch with rate-limit retry
-- **42 item types in dependency order**: Storage → compute → code → models → reactive → APIs
+- **45 item types in dependency order**: Storage → compute → code → models → reactive → APIs
 - **Post-deploy hooks**: SemanticModel → refresh, Environment → publish (opt-out via `--no-post-hooks`)
 - **Parameter substitution**: find_replace, key_value_replace, spark_pool, semantic_model_binding
 
