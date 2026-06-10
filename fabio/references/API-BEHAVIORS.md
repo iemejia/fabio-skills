@@ -1091,7 +1091,7 @@ When a profile is active (`fabio profile use --name <name>`), its `workspace` an
 2. External environment variable (`FABIO_WORKSPACE`, `FABIO_OUTPUT`)
 3. Active profile default
 
-This means setting `FABIO_WORKSPACE` in the shell always overrides the profile, which overrides nothing.
+This means setting `FABIO_WORKSPACE` in the shell always overrides the active profile default.
 
 ```bash
 # Save profile with workspace default
