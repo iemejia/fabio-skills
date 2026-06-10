@@ -142,7 +142,7 @@ fabio lakehouse delete-file --workspace <ws> --id <id> --path <file>
 fabio lakehouse copy-table --workspace <ws> --id <id> --table <name> --dest-workspace <ws2> --dest-id <lh2>
 fabio lakehouse move-table --workspace <ws> --id <id> --table <name> --dest-workspace <ws2> --dest-id <lh2>   # atomic rename when dest-id == id (same lakehouse), copy+delete otherwise
 fabio lakehouse delete-table --workspace <ws> --id <id> --table <name>
-fabio lakehouse sync (--workspace <ws> --id <id> --dest-workspace <ws2> --dest-id <lh2> | --local <dir> --dest-workspace <ws> --dest-id <lh> --dest-path <path>) [--delete] [--checksum] [--include <patterns>] [--exclude <patterns>] [--size-only] [--no-overwrite] [--force] [--no-recursive] [--max-delete <n>] [--existing] [--remove-source-files] [--min-size <size>] [--max-size <size>] [--itemize]
+fabio lakehouse sync (--workspace <ws> --id <id> --dest-workspace <ws2> --dest-id <lh2> [--delete] [--size-only] [--no-overwrite] [--force] [--max-delete <n>] [--existing] | --local <dir> --dest-workspace <ws> --dest-id <lh> --dest-path <path>) [--checksum] [--include <patterns>] [--exclude <patterns>] [--no-recursive] [--remove-source-files] [--min-size <size>] [--max-size <size>] [--itemize]
 fabio lakehouse create-shortcut --workspace <ws> --id <id> --name <name> --path <path> --target-type <adls|s3|onelake> --location <url> [--subpath <sub>]
 fabio lakehouse get-shortcut --workspace <ws> --id <id> --name <name> --path <path>
 fabio lakehouse delete-shortcut --workspace <ws> --id <id> --name <name> --path <path>
