@@ -1145,7 +1145,7 @@ Structured error responses now include additional diagnostic fields from the Fab
 - `requestId` — Server-assigned correlation ID (include in support tickets)
 - `moreDetails` — Array of nested error codes; may provide the root cause
 - `relatedResource` — Resource involved in the error (absent when not applicable)
-- All extra fields use `skip_serializing_if = None` — backward compatible (not present when null)
+- All extra fields are omitted when null — backward compatible with older responses
 
 ## Pagination: continuationUri Preference
 
