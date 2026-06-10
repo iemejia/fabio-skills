@@ -117,8 +117,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
         run: |
           # Use stdin to pass prompt — avoids shell expansion of $WS, $LH etc. in the content
+          # NOTE: shell(git:*) is intentionally excluded — Copilot must NOT commit changes.
+          # The workflow handles all git operations (add/commit/push/PR) in subsequent steps.
           copilot \
-            --allow-tool='shell(git:*)' \
             --allow-tool='shell(cat:*)' \
             --allow-tool='shell(ls:*)' \
             --allow-tool='shell(find:*)' \
@@ -126,6 +127,7 @@ jobs:
             --allow-tool='shell(tail:*)' \
             --allow-tool='shell(grep:*)' \
             --allow-tool='shell(wc:*)' \
+            --allow-tool='shell(diff:*)' \
             --allow-tool=read \
             --allow-tool=write \
             --allow-tool=edit \
