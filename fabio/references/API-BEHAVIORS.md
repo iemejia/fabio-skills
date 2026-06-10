@@ -205,6 +205,19 @@ When `directory` parameter is specified in DFS listing, paths appear doubled (e.
 ### Sync Command
 Compares source and destination using ETag/MD5. Only copies new/modified files. `--delete` removes files in destination that don't exist in source.
 
+#### Rename Detection
+When `--delete` is active, `lakehouse sync` detects renamed/moved files and performs atomic O(1) renames at the destination instead of copy + delete:
+
+- **ETag-based** (zero extra API calls): When source-only and dest-only files match by ETag + size, the file is renamed atomically. Works for files uploaded with `fabio lakehouse upload` (which stores Content-MD5 on flush, preserving ETag across renames).
+- **Checksum-based** (`--checksum --delete`): A second pass compares Content-MD5 via HEAD requests. Only fires when exactly one candidate matches. Handles Fabric-generated files (Spark/pipelines) that lack Content-MD5, falling back to unique-size matching.
+
+Output includes a `"renamed"` count for files handled via atomic rename.
+
+**Note**: Fabric-generated files (Spark, data pipelines, load-table) do NOT have Content-MD5 stored. Their ETags change on rename, so they are not detectable by the ETag pass — only by checksum + unique-size fallback.
+
+#### Content-MD5 on Upload
+`lakehouse upload` stores an MD5 hash via `x-ms-content-md5` header on DFS flush. OneLake preserves this hash across server-side copy and atomic rename, enabling content-based matching.
+
 ## Warehouse & SQL Database
 
 ### Query Input Methods
@@ -350,8 +363,20 @@ Single-part `updateDefinition` with only a datasource file is silently dropped. 
 ### Data Source Types
 `unknown`, `lakehouse_tables`, `lakehouse`, `data_warehouse`, `kusto`, `semantic_model`, `graph`, `mirrored_database`, `mirrored_azure_databricks`
 
-### Publishing
-Publishing is portal-only. No REST API endpoint for publish. The portal "Publish" button activates the server-side chat endpoint.
+### Publishing via CI/CD (Officially Supported)
+`fabio data-agent publish` copies all `Files/Config/draft/*` parts to `Files/Config/published/*` and adds `publish_info.json` via `updateDefinition`. This is the officially documented CI/CD publish path (confirmed June 2026 — no portal required).
+
+```bash
+fabio data-agent publish --workspace $WS --id $DA
+```
+
+The publish_info.json format:
+```json
+{"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/dataAgent/definition/publishInfo/1.0.0/schema.json", "description": "<publish description>"}
+```
+
+Publishing activates the OpenAI Assistants-compatible endpoint:
+`https://api.fabric.microsoft.com/v1/workspaces/{wsId}/dataagents/{agentId}/aiassistant/openai`
 
 ## Definition Operations (Generic Pattern)
 
@@ -1049,6 +1074,35 @@ fabio notebook run --workspace $WS --id $NB --wait \
 ```
 
 Parameter type values: `Text`, `Int`, `Long`, `Double`, `Bool`, `DateTime`
+
+`--execution-data` and `--parameters` accept `@file.json` (read from file) and `@-` (read from stdin), matching the `fabio rest call --body` convention:
+
+```bash
+fabio notebook run --workspace $WS --id $NB --execution-data @params.json
+echo '{"type":"Full"}' | fabio notebook run --workspace $WS --id $NB --execution-data @-
+```
+
+## Profile-Aware Defaults (FABIO_WORKSPACE and FABIO_OUTPUT)
+
+When a profile is active (`fabio profile use --name <name>`), its `workspace` and `output` defaults are injected as environment variable fallbacks for all commands.
+
+**Precedence (highest to lowest):**
+1. Explicit CLI flag (`--workspace`, `--output`)
+2. External environment variable (`FABIO_WORKSPACE`, `FABIO_OUTPUT`)
+3. Active profile default
+
+This means setting `FABIO_WORKSPACE` in the shell always overrides the profile, which overrides nothing.
+
+```bash
+# Save profile with workspace default
+fabio profile save --name dev --workspace $DEV_WS --output json
+
+# Activate profile — subsequent commands use $DEV_WS as workspace default
+fabio profile use --name dev
+
+# Override for a single command via env var
+FABIO_WORKSPACE=$PROD_WS fabio lakehouse list
+```
 
 ## Deploy Validate
 
