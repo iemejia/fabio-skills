@@ -51,10 +51,10 @@ gh skill install iemejia/fabio-skills
 gh skill install iemejia/fabio-skills fabio
 
 # Install a specific version
-gh skill install iemejia/fabio-skills fabio@v0.19.0
+gh skill install iemejia/fabio-skills fabio@v0.20.0
 
 # Install pinned to a version (skipped during updates)
-gh skill install iemejia/fabio-skills fabio --pin v0.19.0
+gh skill install iemejia/fabio-skills fabio --pin v0.20.0
 
 # Install for a specific agent and scope
 gh skill install iemejia/fabio-skills fabio --agent claude-code --scope user
@@ -203,7 +203,7 @@ fabio/
 ├── scripts/
 │   └── install.sh              # Cross-platform binary installer
 └── references/
-    ├── COMMANDS.md             # Full command reference (70 groups, 771 subcommands)
+    ├── COMMANDS.md             # Full command reference (74 groups, 790+ subcommands)
     ├── API-BEHAVIORS.md        # Critical API quirks agents must know
     └── EXAMPLES.md             # End-to-end workflow examples
 ```

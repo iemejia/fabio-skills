@@ -619,6 +619,130 @@ fabio gateway list-role-assignments --id $GW -o table
 fabio gateway delete --id $GW
 ```
 
+## Gateway Lifecycle Management
+
+```bash
+# Check VNet gateway connectivity status
+fabio gateway check-status --id $GW
+
+# Check individual member connectivity status (on-premises gateways)
+fabio gateway check-member-status --id $GW --member-id $MEMBER_ID
+
+# Restart gateway (LRO — polls until complete, requires Admin)
+fabio gateway restart --id $GW
+
+# Shut down gateway (LRO — polls until complete, requires Admin)
+fabio gateway shutdown --id $GW
+```
+
+## Lakehouse Sync: rsync-Inspired Patterns
+
+```bash
+# Sync only new/modified CSV files (include filter)
+fabio lakehouse sync --workspace $WS --id $LH \
+  --dest-workspace $WS2 --dest-id $LH2 --delete \
+  --include "*.csv"
+
+# Sync large files only, skip tiny ones
+fabio lakehouse sync --workspace $WS --id $LH \
+  --dest-workspace $WS2 --dest-id $LH2 \
+  --min-size 1M --max-size 500M
+
+# Safety: skip ALL deletions if more than 10 files would be removed
+fabio lakehouse sync --workspace $WS --id $LH \
+  --dest-workspace $WS2 --dest-id $LH2 --delete \
+  --max-delete 10
+
+# Move semantics: delete source files after successful transfer
+fabio lakehouse sync --workspace $WS --id $LH \
+  --dest-workspace $WS2 --dest-id $LH2 \
+  --remove-source-files
+
+# Refresh existing files only (don't create new ones at dest)
+fabio lakehouse sync --workspace $WS --id $LH \
+  --dest-workspace $WS2 --dest-id $LH2 \
+  --existing
+
+# Itemize: show per-file actions on stderr for audit trail
+fabio lakehouse sync --workspace $WS --id $LH \
+  --dest-workspace $WS2 --dest-id $LH2 --delete \
+  --itemize 2>sync-audit.log
+```
+
+## Lakehouse Sync: Local-to-Remote
+
+Sync a local directory to a remote lakehouse path, uploading only new or changed files:
+
+```bash
+# Basic local sync (size comparison)
+fabio lakehouse sync --local ./data \
+  --dest-workspace $WS --dest-id $LH --dest-path Files/data
+
+# Use checksum (MD5) for more accurate change detection
+fabio lakehouse sync --local ./data \
+  --dest-workspace $WS --dest-id $LH --dest-path Files/data \
+  --checksum
+
+# Move semantics: delete local files after upload
+fabio lakehouse sync --local ./exports \
+  --dest-workspace $WS --dest-id $LH --dest-path Files/archive \
+  --remove-source-files
+
+# Sync only parquet files, skip subdirectories
+fabio lakehouse sync --local ./processed \
+  --dest-workspace $WS --dest-id $LH --dest-path Files/processed \
+  --include "*.parquet" --no-recursive
+```
+
+## Copy Job Reset
+
+```bash
+# Reset ALL entities in a copy job for re-processing
+fabio copy-job reset --workspace $WS --id $CJ --all
+
+# Reset specific entities (comma-separated UUIDs)
+fabio copy-job reset --workspace $WS --id $CJ \
+  --entity-ids "11111111-0000-0000-0000-000000000001,11111111-0000-0000-0000-000000000002"
+```
+
+## Data Build Tool Job (dbt, preview)
+
+```bash
+# List dbt jobs in workspace
+fabio data-build-tool-job list --workspace $WS -o table
+
+# Create a dbt job
+DBTJ=$(fabio data-build-tool-job create \
+  --workspace $WS --name "nightly-dbt-run" -q id -o plain)
+
+# Run a dbt job and wait for completion
+fabio data-build-tool-job run --workspace $WS --id $DBTJ \
+  --wait --timeout 1800
+
+# Get definition
+fabio data-build-tool-job get-definition --workspace $WS --id $DBTJ
+```
+
+## Organizational App (OrgApp & Audience)
+
+```bash
+# Create an Organizational App
+APP=$(fabio org-app create \
+  --workspace $WS --name "SalesReports" -q id -o plain)
+
+# Create an audience for the app
+AUD=$(fabio org-app-audience create \
+  --workspace $WS --name "SalesTeam" -q id -o plain)
+
+# Get definition
+fabio org-app get-definition --workspace $WS --id $APP
+fabio org-app-audience get-definition --workspace $WS --id $AUD
+
+# List all apps and audiences
+fabio org-app list --workspace $WS -o table
+fabio org-app-audience list --workspace $WS -o table
+```
+
 ## Deploy CI/CD (Stateless Workspace Deployment)
 
 ### GitHub Actions — OIDC (Recommended, secretless)
