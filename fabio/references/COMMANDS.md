@@ -887,12 +887,47 @@ fabio user-data-function update-definition --workspace <ws> --id <id> --file <pa
 
 ### deploy
 ```
-fabio deploy plan --source <DIR> --workspace <ID|NAME> [--item-types <T1,T2>] [--delete-orphans] [--allow-unresolved] [--force-all] [--out <FILE>] [--parameters <FILE> --env <NAME>]
-fabio deploy apply --source <DIR> --workspace <ID|NAME> [--plan <FILE>] [--item-types <T1,T2>] [--delete-orphans] [--allow-unresolved] [--fail-fast] [--force] [--force-all] [--concurrency <N>] [--parameters <FILE> --env <NAME>] [--no-post-hooks]
+fabio deploy plan --source <DIR> --workspace <ID|NAME>
+  [--config <FILE>] [--env <NAME>]
+  [--git-diff <REF>]
+  [--item-types <T1,T2>] [--delete-orphans] [--allow-unresolved] [--force-all]
+  [--exclude-regex <PATTERN>] [--include-items <Name.Type,...>]
+  [--include-folders <PATH,...>] [--exclude-folders <PATH,...>]
+  [--allow-delete-types <TYPE,...>]
+  [--no-folders] [--no-workspace-id-replace]
+  [--out <FILE>] [--parameters <FILE> --env <NAME>]
+
+fabio deploy apply --source <DIR> --workspace <ID|NAME>
+  [--plan <FILE>] [--config <FILE>] [--env <NAME>]
+  [--git-diff <REF>]
+  [--item-types <T1,T2>] [--delete-orphans] [--allow-unresolved]
+  [--fail-fast] [--force] [--force-all] [--concurrency <N>]
+  [--exclude-regex <PATTERN>] [--include-items <Name.Type,...>]
+  [--include-folders <PATH,...>] [--exclude-folders <PATH,...>]
+  [--allow-delete-types <TYPE,...>]
+  [--no-folders] [--no-workspace-id-replace]
+  [--shortcut-exclude-regex <PATTERN>]
+  [--parameters <FILE> --env <NAME>] [--no-post-hooks]
+
 fabio deploy export --workspace <ID|NAME> --dir <DIR> [--item-types <T1,T2>] [--overwrite] [--dry-run]
 fabio deploy init-params --source <DIR> [--compare <DIR>] [--source-env <NAME>] [--compare-env <NAME>] [--out <FILE>]
 fabio deploy validate --source <DIR>
 ```
+
+**New flags (v0.22.0):**
+
+| Flag | Description |
+|------|-------------|
+| `--config <FILE>` | Deploy config file (JSON or YAML) with per-environment workspace, source, parameters |
+| `--git-diff <REF>` | Only deploy items changed since this git reference (branch, tag, or commit SHA) |
+| `--exclude-regex <PATTERN>` | Exclude items whose display name matches this regex |
+| `--include-items <Name.Type,...>` | Only include specific items (e.g., `MyNB.Notebook,SalesLH.Lakehouse`) |
+| `--include-folders <PATH,...>` | Only include items in these workspace folder paths |
+| `--exclude-folders <PATH,...>` | Exclude items in these workspace folder paths |
+| `--allow-delete-types <TYPE,...>` | Permit deletion of protected types (Lakehouse, Warehouse, SQLDatabase, Eventhouse, KQLDatabase) |
+| `--no-folders` | Skip workspace folder management |
+| `--no-workspace-id-replace` | Skip automatic `00000000-...` workspace UUID replacement |
+| `--shortcut-exclude-regex <PATTERN>` | Filter shortcuts during reconciliation (apply only) |
 
 ## Configuration & Tooling
 
