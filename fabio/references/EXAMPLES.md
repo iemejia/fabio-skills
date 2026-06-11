@@ -1287,3 +1287,88 @@ fabio lakehouse move-file --workspace $WS --id $LH \
 fabio lakehouse move-table --workspace $WS --id $LH \
   --table raw_orders --dest-workspace $WS2 --dest-id $LH2
 ```
+
+## Deploy with Config File (Multi-Environment)
+
+Deploy the same source directory to different environments using a config file. Avoids repeating workspace IDs and parameters on every command.
+
+```bash
+# deploy.yaml
+cat > deploy.yaml << 'YAML'
+environments:
+  dev:
+    workspace: dev-workspace-name
+    source: ./fabric-items
+  prod:
+    workspace: ${PROD_WORKSPACE_ID}
+    source: ./fabric-items
+    parameters: parameters.json
+YAML
+
+# Plan for dev
+fabio deploy plan --config deploy.yaml --env dev
+
+# Apply to prod (uses parameters.json automatically)
+fabio deploy apply --config deploy.yaml --env prod
+```
+
+**Notes:**
+- `--config` and `--env` are always used together
+- CLI flags override config file values
+- Supports JSON and YAML config formats
+
+## Deploy with Git-Diff Selective Deploy
+
+Deploy only items that changed since a git reference — speeds up CI pipelines by skipping unchanged items even before content-hash comparison.
+
+```bash
+# In a GitHub Actions workflow:
+# Plan only items changed since the last deployed commit
+fabio deploy plan \
+  --source ./fabric-items \
+  --workspace $WS \
+  --git-diff ${{ github.event.before }}
+
+# Apply only changed items (saves API calls for large workspaces)
+fabio deploy apply \
+  --source ./fabric-items \
+  --workspace $WS \
+  --git-diff origin/main \
+  --parameters parameters.json --env prod
+```
+
+**Notes:**
+- Requires the source directory to be inside a git repository
+- `--git-diff main` compares against the `main` branch HEAD
+- Deleted item directories still trigger `Delete` with `--delete-orphans`
+
+## Deploy from fabric-cicd Source Directory
+
+fabio is a superset of Microsoft's fabric-cicd Python library. Source directories exported by fabric-cicd or Fabric's git integration work without modification.
+
+```bash
+# Clone a repo that uses fabric-cicd for source control
+git clone https://github.com/your-org/fabric-workspace.git ./fabric-items
+
+# Validate the fabric-cicd source directory
+fabio deploy validate --source ./fabric-items
+
+# Plan — fabio automatically handles:
+# - .children/ KQL Database discovery (under Eventhouse)
+# - .pbi/ directory exclusion (local Power BI Desktop metadata)
+# - Report byPath → byConnection transforms
+# - Notebook part ordering (.py before .json)
+# - SparkJobDefinitionV2 format auto-detection
+# - creationPayload from .platform metadata fallback
+# - 00000000-... workspace ID replacement
+fabio deploy plan --source ./fabric-items --workspace $WS
+
+# Apply — protected types require explicit opt-in for deletion
+fabio deploy apply --source ./fabric-items --workspace $WS \
+  --allow-delete-types "Lakehouse,Warehouse"
+```
+
+**Notes:**
+- `.platform` is sent to the API but excluded from content hash (prevents false "update" detections)
+- `ItemDisplayNameNotAvailableYet`: fabio retries 10x with 30s delays after item deletion
+- Binary files (images, `.png`) in Report definitions are silently skipped during parameter substitution

@@ -1243,3 +1243,104 @@ The deploy engine now reconciles lakehouse shortcuts as a post-deploy hook:
 - Deletes orphan shortcuts (deployed but not in source definition)
 - Creates/overwrites shortcuts from the source definition (CreateOrOverwrite policy)
 - Shortcut failures are non-fatal (reported in `post_hooks` output; controlled by `--no-post-hooks`)
+
+## Deploy: fabric-cicd Compatibility (v0.22.0)
+
+fabio deploy is now a strict superset of Microsoft's [fabric-cicd](https://github.com/microsoft/fabric-cicd) Python library. Source directories exported by fabric-cicd or Fabric's git integration work identically with fabio.
+
+### `.platform` in parts but excluded from content hash
+
+**Symptom**: Re-planning already-deployed items always shows "update" instead of "skip".
+**Cause**: The Fabric API modifies the `logicalId` field in `.platform` when returning definitions via `getDefinition` (resets to `00000000-...`). Including `.platform` in the content hash causes the source hash to never match the deployed hash.
+**Fix**: `.platform` IS sent as a definition part (enables `?updateMetadata=true` for metadata propagation), but EXCLUDED from content hash computation.
+
+### `.children/` KQL Database discovery
+
+Fabric's git integration stores KQL databases under `Eventhouse/.children/` subdirectories. fabio now recurses into `.children/` directories within item directories to discover child items. This is transparent — items are deployed as independent Fabric items.
+
+### `.pbi/` directory exclusion
+
+Report, SemanticModel, and DataAgent items in PBIP format include a `.pbi/` subdirectory containing local metadata (`cache.abf`, `localSettings.json`). These are NOT part of the Fabric definition. fabio excludes `.pbi/` from definition parts automatically.
+
+### Report `byPath` → `byConnection` transform
+
+**Symptom**: API rejects PBIP-format reports with `byPath` semantic model reference.
+**Cause**: The Fabric REST API requires `byConnection` format; `byPath` is a local filesystem reference used by Power BI Desktop.
+**Fix**: fabio automatically converts `byPath` to `byConnection` by resolving the semantic model's logical ID from its `.platform` file and looking up the deployed GUID.
+
+### Notebook part ordering (.py before .json)
+
+The Fabric API processes Notebook definition parts in order. Content files (`.py`, `.ipynb`) must appear before settings files (`.json`). fabio sorts parts at deploy time automatically.
+
+### `ItemDisplayNameNotAvailableYet` retry
+
+**Symptom**: Creating an item returns HTTP 400 with error code `ItemDisplayNameNotAvailableYet`.
+**Cause**: After deletion, an item's name may be reserved in the recycle bin for up to 5 minutes.
+**Fix**: fabio retries up to 10 times with 30-second delays (~5 minutes total), matching fabric-cicd behavior. Critical for CI/CD pipelines that delete and recreate items with the same name.
+
+### `SparkJobDefinitionV2` format auto-detection
+
+When `.platform` does not specify `definitionFormat`, SparkJobDefinition items automatically use `"SparkJobDefinitionV2"` format. This matches fabric-cicd's `API_FORMAT_MAPPING` behavior.
+
+### `creationPayload` from `.platform` metadata
+
+fabric-cicd stores `creationPayload` inside `.platform`'s `metadata.creationPayload` field (not a separate file). fabio reads this as a fallback when no standalone `creationPayload.json` exists.
+
+### Lakehouse `enableSchemas` inference
+
+**Symptom**: Multi-schema lakehouses fail to create when deploying from fabric-cicd source directories.
+**Cause**: fabric-cicd detects multi-schema lakehouses by checking for `defaultSchema` in `lakehouse.metadata.json` and adds `enableSchemas: true` to `creationPayload`.
+**Fix**: fabio now performs the same detection automatically.
+
+### Workspace ID placeholder replacement
+
+`00000000-0000-0000-0000-000000000000` in definition payloads is auto-replaced with the target workspace UUID. Uses regex matching on workspace-reference keys (`workspaceId`, `default_lakehouse_workspace_id`, `workspace`) — NOT blanket string replacement (prevents corrupting `itemId` or other GUID fields). Shortcuts are excluded (handled separately with lakehouse GUID). Opt-out: `--no-workspace-id-replace`.
+
+### Shortcut self-reference
+
+When a shortcut's `target.oneLake.itemId` is `00000000-...`, it means "this lakehouse itself" (self-referencing shortcut). fabio replaces this with the lakehouse's own deployed GUID — NOT the workspace ID. The workspace ID replacement step skips shortcuts entirely.
+
+### Binary file graceful handling
+
+Non-UTF-8 payloads (images, compiled assets) are silently skipped during parameter substitution and reference validation. Previously this caused "Non-UTF8 content" errors.
+
+## Deploy: Config File (v0.22.0)
+
+`--config <file> --env <name>` loads a JSON or YAML config file with per-environment settings:
+
+```yaml
+# deploy.yaml
+environments:
+  dev:
+    workspace: dev-workspace-name
+    source: ./fabric-items
+  prod:
+    workspace: prod-workspace-id
+    source: ./fabric-items
+    parameters: parameters.json
+    options:
+      delete_orphans: false
+      concurrency: 4
+```
+
+```bash
+fabio deploy apply --config deploy.yaml --env prod
+```
+
+- CLI flags always override config file values
+- `--env` is required when `--config` is specified
+- Supports both JSON and YAML formats (`serde_yaml`)
+
+## Deploy: Git-Diff Selective Deploy (v0.22.0)
+
+`--git-diff <REF>` limits deployment to items changed since a git reference:
+
+```bash
+# Only deploy items changed since main branch
+fabio deploy plan --source ./fabric-items --workspace $WS --git-diff main
+
+# Only deploy items changed since a specific commit
+fabio deploy apply --source ./fabric-items --workspace $WS --git-diff abc1234
+```
+
+Uses `git diff --name-status <REF>` to determine changed item directories. Items with no changed files are skipped at the plan stage (treated as `Skip`). Deleted items still appear as `Delete` if `--delete-orphans` is set.
