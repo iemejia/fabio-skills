@@ -1300,7 +1300,7 @@ environments:
     workspace: dev-workspace-name
     source: ./fabric-items
   prod:
-    workspace: ${PROD_WORKSPACE_ID}
+    workspace: prod-workspace-name
     source: ./fabric-items
     parameters: parameters.json
 YAML
