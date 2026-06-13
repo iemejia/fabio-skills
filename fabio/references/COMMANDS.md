@@ -209,6 +209,8 @@ Output structure (default format):
 Relationship types discovered: `child_of`, `has_endpoint`, `default_lakehouse`, `bound_to_model`, `reads_from`, `streams_to`, `queries`, `executes`, `definition_ref`, `workspace_ref`, `connected_via`
 
 ## Data & Compute
+
+### notebook
 ```
 fabio notebook list --workspace <ws>
 fabio notebook show --workspace <ws> --id <id>
