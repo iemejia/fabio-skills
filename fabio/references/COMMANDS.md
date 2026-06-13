@@ -181,9 +181,34 @@ fabio capacity check-name --subscription <sub> --location <region> --name <name>
 fabio catalog search --content '{"searchString":"<text>","top":N}'
 ```
 
-## Data & Compute
+### context
+```
+fabio context extract --workspace <ws>    Extract graph of items and relationships from workspace(s)
+  --workspace <id|name>     Workspace to scan (repeatable — pass multiple times for multi-workspace)
+  --deep                    Fetch item definitions to discover embedded UUID references (slower)
+  --include-connections     Include connection objects as graph edges
+  --item-types <T1,T2>      Filter to specific item types (comma-separated, case-insensitive)
+  --no-properties           Skip type-specific GET calls; inventory only (~3s for 20 workspaces)
+  --format <graph|jsonld>   Output format: graph (default JSON) or jsonld (RDF-compatible JSON-LD)
+  --output-file <path>      Write graph JSON to file instead of stdout
+  --merge <existing.json>   Load existing graph file and union new nodes/edges into it (idempotent)
+  --concurrency <n>         Concurrent API calls (default 8)
+  --dry-run                 Preview what would be scanned without API calls
+```
 
-### notebook
+Output structure (default format):
+```json
+{"data": {
+  "nodes": [{"id":"<uuid>","type":"Notebook","name":"...","workspaceId":"...","properties":{...}}],
+  "edges": [{"source":"<uuid>","target":"<uuid>","relationship":"default_lakehouse"}],
+  "workspaces": [{"id":"<uuid>","name":"..."}],
+  "summary": {"totalNodes":N,"totalEdges":N,"itemTypes":{...}}
+}}
+```
+
+Relationship types discovered: `child_of`, `has_endpoint`, `default_lakehouse`, `bound_to_model`, `reads_from`, `streams_to`, `queries`, `executes`, `definition_ref`, `workspace_ref`, `connected_via`
+
+## Data & Compute
 ```
 fabio notebook list --workspace <ws>
 fabio notebook show --workspace <ws> --id <id>

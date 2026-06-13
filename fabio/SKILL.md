@@ -5,7 +5,7 @@ license: MIT
 compatibility: "Requires fabio binary (Linux/macOS/Windows x64/arm64). Authentication via `fabio auth login` (uses same Microsoft Identity platform as Azure CLI). Strongly recommended companions: az (Azure CLI) for supplementary Azure operations, gh (GitHub CLI) for release downloads. Network access to api.fabric.microsoft.com, api.powerbi.com, and onelake.dfs.fabric.microsoft.com required."
 metadata:
   author: iemejia
-  version: "0.23.0"
+  version: "0.24.0"
   repository: https://github.com/iemejia/fabio
 ---
 
@@ -57,7 +57,7 @@ docker run --rm \
   -e AZURE_CLIENT_ID=$AZURE_CLIENT_ID \
   -e AZURE_CLIENT_SECRET=$AZURE_CLIENT_SECRET \
   -e AZURE_TENANT_ID=$AZURE_TENANT_ID \
-  ghcr.io/iemejia/fabio:0.23.0 fabio workspace list
+  ghcr.io/iemejia/fabio:0.24.0 fabio workspace list
 ```
 
 ### Build from Source (requires Rust 1.85+)
@@ -234,7 +234,7 @@ These are essential for correct operation. See [references/API-BEHAVIORS.md](ref
 
 fabio has 74 command groups with 800+ subcommands covering the full Fabric API surface. See [references/COMMANDS.md](references/COMMANDS.md) for the complete reference.
 
-**Core**: auth, workspace, item, lakehouse, capacity, catalog
+**Core**: auth, workspace, item, lakehouse, capacity, catalog, context
 **Data & Compute**: notebook, warehouse, sql-database, sql-endpoint, data-pipeline, copy-job, dataflow, environment, data-agent, ontology
 **Analytics**: report, semantic-model (including 12 Power BI API commands: clone, export-pbix, import-pbix, list-users, etc.), paginated-report, dashboard, datamart
 **Real-Time Intelligence**: eventhouse, eventstream, kql-database, kql-queryset, kql-dashboard, reflex, anomaly-detector, event-schema-set, rti (nl-to-kql)
