@@ -21,6 +21,21 @@ Critical API behaviors that agents must know for correct operation. These are ba
 {"error": {"code": "NOT_FOUND", "message": "Item not found", "hint": "Run: fabio item list --workspace <ws>"}}
 ```
 
+### Self-Correcting Error Hints (v0.23.0+)
+
+~79% of error paths include structured `hint` fields that tell agents exactly how to fix mistakes — valid enum values, example commands, required roles. Agents should always read the `hint` field before retrying or asking for help. Coverage includes:
+
+- **Deploy errors**: config/flag validation, plan file issues, source directory problems, circular dependency hints, YAML parameter parsing
+- **Auth errors**: missing roles, forbidden operations with required role listed
+- **Item operations**: invalid type names with valid enum, missing `--dry-run` removal hint
+- **Notebook polling**: timeout/failure/cancelled hints pointing to status check commands
+- **Capacity/Spark**: SKU enum values, pool validation
+
+Example hint-driven recovery:
+```json
+{"error":{"code":"INVALID_INPUT","message":"Invalid item type 'notebook'","hint":"Valid types: CopyJob, DataAgent, DataPipeline, Dataflow, Environment, Eventhouse, Eventstream, GraphQLApi, KQLDashboard, KQLDatabase, KQLQueryset, Lakehouse, MLExperiment, MLModel, MirroredDatabase, Notebook, Ontology, Reflex, Report, SQLDatabase, SQLEndpoint, SemanticModel, SparkJobDefinition, Warehouse"}}
+```
+
 ## Authentication & Token Scoping
 
 | API Surface | Token Scope |
@@ -242,6 +257,20 @@ Type widening rules (never narrows):
 
 ### SQL Database Capacity Requirement
 F4+ capacity required for TDS connections. F2 fails with error 18456 State 240.
+
+### SQL Endpoint Query (v0.23.0+)
+`fabio sql-endpoint query` resolves the connection string from the dedicated `/connectionString` API endpoint, uses `displayName` as the initial catalog, then delegates to TDS execution. Same input modes as warehouse/sql-database:
+```bash
+# Inline SQL
+fabio sql-endpoint query --workspace $WS --id $SQLEP --sql "SELECT TOP 10 * FROM dbo.sales"
+
+# From file
+fabio sql-endpoint query --workspace $WS --id $SQLEP --sql @query.sql
+
+# From stdin
+echo "SELECT COUNT(*) FROM dbo.orders" | fabio sql-endpoint query --workspace $WS --id $SQLEP
+```
+SQL endpoints are read-only (auto-created alongside lakehouses). They cannot be created or deleted independently.
 
 ## KQL Database Queries
 

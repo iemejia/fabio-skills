@@ -5,7 +5,7 @@ license: MIT
 compatibility: "Requires fabio binary (Linux/macOS/Windows x64/arm64). Authentication via `fabio auth login` (uses same Microsoft Identity platform as Azure CLI). Strongly recommended companions: az (Azure CLI) for supplementary Azure operations, gh (GitHub CLI) for release downloads. Network access to api.fabric.microsoft.com, api.powerbi.com, and onelake.dfs.fabric.microsoft.com required."
 metadata:
   author: iemejia
-  version: "0.22.0"
+  version: "0.23.0"
   repository: https://github.com/iemejia/fabio
 ---
 
@@ -57,7 +57,7 @@ docker run --rm \
   -e AZURE_CLIENT_ID=$AZURE_CLIENT_ID \
   -e AZURE_CLIENT_SECRET=$AZURE_CLIENT_SECRET \
   -e AZURE_TENANT_ID=$AZURE_TENANT_ID \
-  ghcr.io/iemejia/fabio:0.21.0 fabio workspace list
+  ghcr.io/iemejia/fabio:0.23.0 fabio workspace list
 ```
 
 ### Build from Source (requires Rust 1.85+)
@@ -250,7 +250,7 @@ fabio has 73 command groups with 790+ subcommands covering the full Fabric API s
 
 ## CI/CD Deployment (fabio deploy)
 
-A stateless CI/CD engine that deploys Fabric items via content-hash diffing (no state file). v0.22.0 adds full fabric-cicd compatibility — source directories exported by Microsoft's [fabric-cicd](https://github.com/microsoft/fabric-cicd) Python library work identically with fabio.
+A stateless CI/CD engine that deploys Fabric items via content-hash diffing (no state file). Full fabric-cicd compatibility — source directories exported by Microsoft's [fabric-cicd](https://github.com/microsoft/fabric-cicd) Python library work identically with fabio, including YAML parameter files (`parameter.yml`).
 
 ```bash
 # Export current workspace state to disk
@@ -297,6 +297,7 @@ Key behaviors:
 - **45 item types in dependency order**: Storage → compute → code → models → reactive → APIs
 - **Post-deploy hooks**: SemanticModel → refresh, Environment → publish (opt-out via `--no-post-hooks`)
 - **Parameter substitution**: find_replace, key_value_replace, spark_pool, semantic_model_binding
+- **Parameter file format**: `--parameters` accepts JSON (`.json`) or YAML (`.yml`/`.yaml`) — auto-detected by extension; fabric-cicd's `parameter.yml` files work directly
 - **`.platform` in parts but excluded from hash**: Sent to API for metadata updates, but excluded from content hash (API rewrites `logicalId`, breaking idempotency if hashed)
 
 ## Composability Patterns

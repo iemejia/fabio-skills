@@ -133,6 +133,30 @@ fabio warehouse connection-string --workspace $WS --id $WH
 fabio warehouse create-restore-point --workspace $WS --id $WH --name "pre-migration"
 ```
 
+## SQL Endpoint Query
+
+SQL analytics endpoints are read-only companions to lakehouses. Query them with T-SQL using the same input modes as warehouse/sql-database.
+
+```bash
+# Get the SQL endpoint ID (auto-created alongside a lakehouse)
+SQLEP=$(fabio sql-endpoint list --workspace $WS -q "data[?displayName=='SalesLakehouse'] | [0].id" -o plain)
+
+# Query inline
+fabio sql-endpoint query --workspace $WS --id $SQLEP \
+  --sql "SELECT TOP 10 * FROM dbo.sales ORDER BY order_date DESC"
+
+# Query from file
+fabio sql-endpoint query --workspace $WS --id $SQLEP --sql @queries/report.sql
+
+# Query from stdin
+echo "SELECT COUNT(*) FROM dbo.orders" | \
+  fabio sql-endpoint query --workspace $WS --id $SQLEP
+
+# Cross-lakehouse queries (three-part names work from SQL endpoints, not from SQL Database)
+fabio sql-endpoint query --workspace $WS --id $SQLEP \
+  --sql "SELECT l.*, r.col FROM dbo.local_table l JOIN OtherLH.dbo.table r ON l.id = r.id"
+```
+
 ## SQL Database Import
 
 ```bash
@@ -1344,7 +1368,7 @@ fabio deploy apply \
 
 ## Deploy from fabric-cicd Source Directory
 
-fabio is a superset of Microsoft's fabric-cicd Python library. Source directories exported by fabric-cicd or Fabric's git integration work without modification.
+fabio is a superset of Microsoft's fabric-cicd Python library. Source directories exported by fabric-cicd or Fabric's git integration work without modification — including YAML parameter files.
 
 ```bash
 # Clone a repo that uses fabric-cicd for source control
@@ -1363,6 +1387,10 @@ fabio deploy validate --source ./fabric-items
 # - 00000000-... workspace ID replacement
 fabio deploy plan --source ./fabric-items --workspace $WS
 
+# Apply with fabric-cicd's parameter.yml file (YAML supported natively)
+fabio deploy apply --source ./fabric-items --workspace $WS \
+  --parameters parameter.yml --env dev
+
 # Apply — protected types require explicit opt-in for deletion
 fabio deploy apply --source ./fabric-items --workspace $WS \
   --allow-delete-types "Lakehouse,Warehouse"
@@ -1372,3 +1400,4 @@ fabio deploy apply --source ./fabric-items --workspace $WS \
 - `.platform` is sent to the API but excluded from content hash (prevents false "update" detections)
 - `ItemDisplayNameNotAvailableYet`: fabio retries 10x with 30s delays after item deletion
 - Binary files (images, `.png`) in Report definitions are silently skipped during parameter substitution
+- `--parameters` accepts `.json`, `.yml`, or `.yaml` — extension auto-detected. fabric-cicd's `parameter.yml` works without conversion.
