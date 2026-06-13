@@ -1,6 +1,6 @@
 # fabio Command Reference
 
-Complete command reference organized by functional area (74 groups, 790+ subcommands).
+Complete command reference organized by functional area (74 groups, 800+ subcommands).
 
 ## Global Flags
 
@@ -247,6 +247,8 @@ fabio sql-database list-deleted --workspace <ws>
 fabio sql-endpoint list --workspace <ws>
 fabio sql-endpoint show --workspace <ws> --id <id>
 fabio sql-endpoint connection-string --workspace <ws> --id <id>
+fabio sql-endpoint query --workspace <ws> --id <id> --sql "<T-SQL>"
+  # Input modes: --sql "inline SQL", --sql @file.sql, or pipe via stdin
 fabio sql-endpoint refresh-metadata --workspace <ws> --id <id>
 fabio sql-endpoint get-audit-settings --workspace <ws> --id <id>
 fabio sql-endpoint update-audit-settings --workspace <ws> --id <id> ...
@@ -928,6 +930,10 @@ fabio deploy validate --source <DIR>
 | `--no-folders` | Skip workspace folder management |
 | `--no-workspace-id-replace` | Skip automatic `00000000-...` workspace UUID replacement |
 | `--shortcut-exclude-regex <PATTERN>` | Filter shortcuts during reconciliation (apply only) |
+
+**v0.23.0 changes:**
+
+- `--parameters <FILE>` now accepts **YAML** (`.yml`/`.yaml`) in addition to JSON — auto-detected by extension. fabric-cicd's `parameter.yml` files work without conversion.
 
 ## Configuration & Tooling
 
