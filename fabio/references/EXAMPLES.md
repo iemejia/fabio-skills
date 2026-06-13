@@ -1401,3 +1401,71 @@ fabio deploy apply --source ./fabric-items --workspace $WS \
 - `ItemDisplayNameNotAvailableYet`: fabio retries 10x with 30s delays after item deletion
 - Binary files (images, `.png`) in Report definitions are silently skipped during parameter substitution
 - `--parameters` accepts `.json`, `.yml`, or `.yaml` — extension auto-detected. fabric-cicd's `parameter.yml` works without conversion.
+
+## Context extraction (agent memory)
+
+```bash
+# Extract a graph of all items and relationships from a workspace
+fabio context extract --workspace $WS
+
+# Scan multiple workspaces at once
+fabio context extract --workspace $WS1 --workspace $WS2 --workspace $WS3
+
+# Deep mode: fetch definitions to discover embedded references (~4m for 154 items)
+fabio context extract --workspace $WS --deep
+
+# Include connection objects as graph edges
+fabio context extract --workspace $WS --include-connections
+
+# Full extraction with all discovery layers
+fabio context extract --workspace $WS --deep --include-connections
+
+# Filter to specific item types
+fabio context extract --workspace $WS --item-types "Notebook,Lakehouse,SemanticModel"
+
+# Fast inventory-only mode (skip property fetching, just list items ~3s for 20 workspaces)
+fabio context extract --workspace $WS --no-properties
+
+# Increase concurrency for large workspaces
+fabio context extract --workspace $WS --deep --concurrency 16
+
+# Use workspace name instead of ID
+fabio context extract --workspace "sales-analytics"
+
+# Preview what would be scanned without making API calls
+fabio context extract --workspace $WS --deep --dry-run
+
+# ── Incremental context building ──
+
+# Save graph to a file
+fabio context extract --workspace $WS --deep --output-file context.json
+
+# Later: add another workspace to the existing graph (idempotent merge)
+fabio context extract --workspace $NEW_WS --deep \
+  --merge context.json --output-file context.json
+
+# Build up context workspace by workspace
+fabio context extract --workspace $WS1 --output-file graph.json
+fabio context extract --workspace $WS2 --merge graph.json --output-file graph.json
+fabio context extract --workspace $WS3 --merge graph.json --output-file graph.json
+
+# Recommended incremental pattern: fast inventory first, then deepen
+fabio context extract --workspace $WS1 --workspace $WS2 --no-properties --output-file graph.json
+fabio context extract --workspace $WS1 --deep --merge graph.json --output-file graph.json
+
+# Pipe to jq for graph analysis
+fabio context extract --workspace $WS --deep | jq '.data.summary'
+fabio context extract --workspace $WS --deep | jq '.data.edges[] | select(.relationship == "default_lakehouse")'
+
+# ── JSON-LD output (RDF-compatible) ──
+
+# Export as JSON-LD for graph databases and SPARQL endpoints
+fabio context extract --workspace $WS --deep --format jsonld
+
+# Save JSON-LD to file for import into Neptune/Stardog/Jena
+fabio context extract --workspace $WS --deep --format jsonld --output-file context.jsonld
+
+# JSON-LD output: @context vocabulary + @graph with typed resources
+# Each item becomes: {"@id": "urn:fabric:item:<uuid>", "@type": "fabric:Notebook", ...}
+# Edges are inlined as typed properties: {"fabric:defaultLakehouse": {"@id": "urn:fabric:item:<uuid>"}}
+```
