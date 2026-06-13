@@ -1,6 +1,6 @@
 ---
 name: fabio
-description: "Manage Microsoft Fabric artifacts and data using the fabio CLI - an agent-first command-line tool with 790+ subcommands across 73 groups, structured JSON output, composable piping, and machine-readable errors. Use when working with Fabric workspaces, lakehouses, warehouses, notebooks, eventhouses, semantic models, reports, data pipelines, KQL databases, eventstreams, deploy CI/CD, REST passthrough, Power BI API, capacity lifecycle, app-backend (Power Apps), data-build-tool-job (dbt), org-app (Organizational App), or any Fabric REST API resource. Covers CRUD operations, file upload/download, SQL/DAX/KQL queries, Git integration, deployment pipelines, CI/CD deploy (plan/apply/export/validate/config-file/git-diff), natural language to KQL, and administration."
+description: "Manage Microsoft Fabric artifacts and data using the fabio CLI - an agent-first command-line tool with 800+ subcommands across 74 groups, structured JSON output, composable piping, and machine-readable errors. Use when working with Fabric workspaces, lakehouses, warehouses, notebooks, eventhouses, semantic models, reports, data pipelines, KQL databases, eventstreams, deploy CI/CD, REST passthrough, Power BI API, capacity lifecycle, app-backend (Power Apps), data-build-tool-job (dbt), org-app (Organizational App), or any Fabric REST API resource. Covers CRUD operations, file upload/download, SQL/DAX/KQL queries, Git integration, deployment pipelines, CI/CD deploy (plan/apply/export/validate/config-file/git-diff), natural language to KQL, and administration."
 license: MIT
 compatibility: "Requires fabio binary (Linux/macOS/Windows x64/arm64). Authentication via `fabio auth login` (uses same Microsoft Identity platform as Azure CLI). Strongly recommended companions: az (Azure CLI) for supplementary Azure operations, gh (GitHub CLI) for release downloads. Network access to api.fabric.microsoft.com, api.powerbi.com, and onelake.dfs.fabric.microsoft.com required."
 metadata:
@@ -13,7 +13,7 @@ metadata:
 
 ## Overview
 
-`fabio` is a CLI designed for AI agents first, humans second. It manages the entire Microsoft Fabric platform (790+ subcommands across 73 groups) from the command line with structured JSON output, composable stdin/stdout piping, machine-readable error codes, and non-interactive operation.
+`fabio` is a CLI designed for AI agents first, humans second. It manages the entire Microsoft Fabric platform (800+ subcommands across 74 groups) from the command line with structured JSON output, composable stdin/stdout piping, machine-readable error codes, and non-interactive operation.
 
 ## Installation
 
@@ -232,7 +232,7 @@ These are essential for correct operation. See [references/API-BEHAVIORS.md](ref
 
 ## Command Groups
 
-fabio has 73 command groups with 790+ subcommands covering the full Fabric API surface. See [references/COMMANDS.md](references/COMMANDS.md) for the complete reference.
+fabio has 74 command groups with 800+ subcommands covering the full Fabric API surface. See [references/COMMANDS.md](references/COMMANDS.md) for the complete reference.
 
 **Core**: auth, workspace, item, lakehouse, capacity, catalog
 **Data & Compute**: notebook, warehouse, sql-database, sql-endpoint, data-pipeline, copy-job, dataflow, environment, data-agent, ontology
