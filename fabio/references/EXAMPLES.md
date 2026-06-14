@@ -371,11 +371,41 @@ fabio item list --workspace $WS --continuation-token "eyJ..."
 fabio workspace list | jq '.data[] | select(.capacityId != null) | .id'
 
 # Named profiles for multi-environment
-fabio profile save --name dev --workspace $WS_DEV
-fabio profile save --name prod --workspace $WS_PROD
+fabio profile save --name dev --workspace $WS_DEV --capacity $CAP_DEV --default-output json
+fabio profile save --name prod --workspace $WS_PROD --capacity $CAP_PROD
 fabio profile use --name prod
 fabio lakehouse list  # uses prod workspace from profile
+
+# Use a specific profile for one command (overrides active profile)
+fabio lakehouse list --profile dev
+
+# Add private link workspace to profile (for isolated network access)
+fabio profile save --name secure --workspace $WS --private-link-workspace $PL_WS_ID
 ```
+
+## Self-Update
+
+```bash
+# Check if update is available (read-only, works on dev builds too)
+fabio upgrade --check
+
+# Install latest release (verifies SHA256, atomic binary replacement)
+fabio upgrade
+
+# Install specific version
+fabio upgrade --target-version 0.24.0
+
+# Force reinstall current version (re-downloads and replaces binary)
+fabio upgrade --force
+
+# Preview what would happen without executing
+fabio upgrade --dry-run
+```
+
+Safety notes:
+- Refuses to downgrade without `--force`
+- Dev builds (containing `-dev` in version) are protected from accidental overwrite
+- SHA256 checksum is verified before replacing the binary
 
 ## GraphQL API
 
