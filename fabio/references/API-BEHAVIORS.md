@@ -1111,13 +1111,13 @@ fabio notebook run --workspace $WS --id $NB --execution-data @params.json
 echo '{"type":"Full"}' | fabio notebook run --workspace $WS --id $NB --execution-data @-
 ```
 
-## Profile-Aware Defaults (FABIO_WORKSPACE and FABIO_OUTPUT)
+## Profile-Aware Defaults (FABIO_WORKSPACE, FABIO_OUTPUT, and FABIO_CAPACITY)
 
 When a profile is active (`fabio profile use --name <name>`), its `workspace`, `output`, and `capacity` defaults are injected as environment variable fallbacks for all commands.
 
 **Precedence (highest to lowest):**
-1. Explicit CLI flag (`--workspace`, `--output`)
-2. External environment variable (`FABIO_WORKSPACE`, `FABIO_OUTPUT`)
+1. Explicit CLI flag (`--workspace`, `--output`, `--capacity`)
+2. External environment variable (`FABIO_WORKSPACE`, `FABIO_OUTPUT`, `FABIO_CAPACITY`)
 3. Active profile default
 
 This means setting `FABIO_WORKSPACE` in the shell always overrides the active profile default.
