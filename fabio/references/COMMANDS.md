@@ -966,12 +966,20 @@ fabio deploy validate --source <DIR>
 
 ### profile
 ```
-fabio profile save --name <name> [--workspace <ws>] [--output <format>]
+fabio profile save --name <name> [--workspace <ws>] [--capacity <cap>] [--default-output <format>] [--private-link-workspace <ws-id>]
 fabio profile use --name <name>
 fabio profile list
 fabio profile show --name <name>
 fabio profile delete --name <name>
 ```
+
+Flags for `profile save`:
+- `--workspace <ID>` — default workspace (injects `FABIO_WORKSPACE`)
+- `--capacity <ID>` — default capacity (used by `workspace assign-capacity` and `gateway create`)
+- `--default-output <format>` — default output format (`json`, `table`, `plain`, `csv`, `tsv`) (injects `FABIO_OUTPUT`)
+- `--private-link-workspace <ID>` — routes all Fabric/OneLake API calls through private link URLs
+
+`profile save` merges with existing profile — omitted fields preserve their current values.
 
 ### jobs (local async job ledger)
 ```
@@ -1022,6 +1030,21 @@ fabio operation get-result --id <operation-id>
 fabio feedback send --message <text>
 fabio feedback list
 ```
+
+### upgrade
+```
+fabio upgrade                                Check and install latest release
+fabio upgrade --check                        Report available update without installing
+fabio upgrade --target-version <x.y.z>       Install a specific version
+fabio upgrade --force                        Reinstall even if already on latest version
+fabio upgrade --dry-run                      Show planned action without executing
+```
+
+Safety behaviors:
+- SHA256 checksum verification before binary replacement
+- Refuses to downgrade without `--force`
+- Dev builds (`-dev` suffix) are protected from accidental overwrite; `--check` still works
+- Atomic binary replacement (rename-dance on Windows for locked exe)
 
 ### rest (raw REST passthrough)
 ```

@@ -1113,7 +1113,7 @@ echo '{"type":"Full"}' | fabio notebook run --workspace $WS --id $NB --execution
 
 ## Profile-Aware Defaults (FABIO_WORKSPACE and FABIO_OUTPUT)
 
-When a profile is active (`fabio profile use --name <name>`), its `workspace` and `output` defaults are injected as environment variable fallbacks for all commands.
+When a profile is active (`fabio profile use --name <name>`), its `workspace`, `output`, and `capacity` defaults are injected as environment variable fallbacks for all commands.
 
 **Precedence (highest to lowest):**
 1. Explicit CLI flag (`--workspace`, `--output`)
@@ -1122,9 +1122,21 @@ When a profile is active (`fabio profile use --name <name>`), its `workspace` an
 
 This means setting `FABIO_WORKSPACE` in the shell always overrides the active profile default.
 
+**`--profile` flag** overrides the active profile for a single invocation — corrected in v0.25.0 to properly override workspace, output, AND capacity (previously only affected private link routing):
+
+```bash
+# Use prod defaults for one command while dev profile is active
+fabio lakehouse list --profile prod
+```
+
+**`profile save` merges with existing profile** (v0.25.0+): Omitted fields preserve their current values. Previously, omitting a field would clear it to null.
+
 ```bash
 # Save profile with workspace default
-fabio profile save --name dev --workspace $DEV_WS --output json
+fabio profile save --name dev --workspace $DEV_WS --default-output json
+
+# Add capacity to existing dev profile without clearing other fields
+fabio profile save --name dev --capacity $CAP_ID
 
 # Activate profile — subsequent commands use $DEV_WS as workspace default
 fabio profile use --name dev
@@ -1132,6 +1144,13 @@ fabio profile use --name dev
 # Override for a single command via env var
 FABIO_WORKSPACE=$PROD_WS fabio lakehouse list
 ```
+
+**`FABIO_CAPACITY` from profiles** (v0.25.0+): The `capacity` field in a profile is injected as `FABIO_CAPACITY` and wired to `workspace assign-capacity` and `gateway create` commands.
+
+**`--private-link-workspace`** flag on `profile save` (v0.25.0+): Configures private link routing without manual JSON editing. When set, `FabricClient` transforms all API URLs to use private link endpoints:
+- `https://api.fabric.microsoft.com/v1/...` → `https://<ws-id>-api.privatelink.analysis.windows.net/v1/...`
+- `https://onelake.dfs.fabric.microsoft.com/...` → `https://<ws-id>-onelake.dfs.fabric.microsoft.com/...`
+- `https://onelake.blob.fabric.microsoft.com/...` → `https://<ws-id>-onelake.blob.fabric.microsoft.com/...`
 
 ## Deploy Validate
 
@@ -1385,3 +1404,4 @@ Uses `git diff --name-status <REF>` to determine changed item directories. Items
 - **`--merge` is idempotent**: Loads an existing graph, unions new nodes/edges. Merge semantics: nodes deduped by ID (new overwrites old), edges unioned (exact-match dedup), workspaces deduped by ID. Re-extracting the same workspace updates it in place.
 - **`--format jsonld` produces valid RDF**: JSON-LD with `@context` vocabulary (`https://api.fabric.microsoft.com/ontology/`) and `@graph` array. Items become `urn:fabric:item:{uuid}` resources typed as `fabric:{ItemType}`. Edges inlined as typed properties (e.g., `fabric:defaultLakehouse`). Multiple edges of same type become JSON arrays. Compatible with Neptune, Stardog, Jena, and any SPARQL endpoint.
 - **Performance benchmarks (20 workspaces, 154 items)**: Shallow: 7.7s, 2 edges. Deep + connections: 4m18s, 88 edges. No-properties: ~3s, 0 edges. LRO polling is the deep mode bottleneck (2-6s per `getDefinition` call, 8 concurrent).
+- **Concurrency auto-scales to CPU count** (v0.25.0+): Default concurrency is `min(cpus * 4, 16)` instead of a hardcoded 8. I/O-bound workload (HTTP round-trips) benefits from higher concurrency. On a 4-core machine, default is now 16, approximately halving deep-mode time. Override with `--concurrency <N>`.
