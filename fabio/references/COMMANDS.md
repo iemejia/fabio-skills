@@ -1033,11 +1033,7 @@ fabio feedback list
 
 ### upgrade
 ```
-fabio upgrade                                Check and install latest release
-fabio upgrade --check                        Report available update without installing
-fabio upgrade --target-version <x.y.z>       Install a specific version
-fabio upgrade --force                        Reinstall even if already on latest version
-fabio upgrade --dry-run                      Show planned action without executing
+fabio upgrade [--check] [--target-version <x.y.z>] [--force] [--dry-run]   Check/install latest release or a specific version
 ```
 
 Safety behaviors:
