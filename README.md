@@ -51,10 +51,10 @@ gh skill install iemejia/fabio-skills
 gh skill install iemejia/fabio-skills fabio
 
 # Install a specific version
-gh skill install iemejia/fabio-skills fabio@v0.25.0
+gh skill install iemejia/fabio-skills fabio@v0.26.0
 
 # Install pinned to a version (skipped during updates)
-gh skill install iemejia/fabio-skills fabio --pin v0.25.0
+gh skill install iemejia/fabio-skills fabio --pin v0.26.0
 
 # Install for a specific agent and scope
 gh skill install iemejia/fabio-skills fabio --agent claude-code --scope user

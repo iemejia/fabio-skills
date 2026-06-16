@@ -5,7 +5,7 @@ license: MIT
 compatibility: "Requires fabio binary (Linux/macOS/Windows x64/arm64). Authentication via `fabio auth login` (uses same Microsoft Identity platform as Azure CLI). Strongly recommended companions: az (Azure CLI) for supplementary Azure operations, gh (GitHub CLI) for release downloads. Network access to api.fabric.microsoft.com, api.powerbi.com, and onelake.dfs.fabric.microsoft.com required."
 metadata:
   author: iemejia
-  version: "0.25.0"
+  version: "0.26.0"
   repository: https://github.com/iemejia/fabio
 ---
 
@@ -57,7 +57,7 @@ docker run --rm \
   -e AZURE_CLIENT_ID=$AZURE_CLIENT_ID \
   -e AZURE_CLIENT_SECRET=$AZURE_CLIENT_SECRET \
   -e AZURE_TENANT_ID=$AZURE_TENANT_ID \
-  ghcr.io/iemejia/fabio:0.25.0 fabio workspace list
+  ghcr.io/iemejia/fabio:0.26.0 fabio workspace list
 ```
 
 ### Build from Source (requires Rust 1.85+)

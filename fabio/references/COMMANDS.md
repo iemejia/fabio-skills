@@ -348,13 +348,46 @@ fabio environment update-staging-spark-compute --workspace <ws> --id <id> ...
 ```
 fabio data-agent list --workspace <ws>
 fabio data-agent show --workspace <ws> --id <id>
-fabio data-agent create --workspace <ws> --name <name>
+fabio data-agent create --workspace <ws> --name <name> [--description <desc>]
 fabio data-agent update --workspace <ws> --id <id> --name <new-name>
 fabio data-agent delete --workspace <ws> --id <id>
-fabio data-agent query --workspace <ws> --id <id> --message <text> [--show-steps]
 fabio data-agent get-definition --workspace <ws> --id <id>
 fabio data-agent update-definition --workspace <ws> --id <id> --file <path>
-fabio data-agent publish --workspace <ws> --id <id>
+
+# Configuration management
+fabio data-agent get-config --workspace <ws> --id <id>
+fabio data-agent update-config --workspace <ws> --id <id>
+  [--instructions <text>] [--instructions-file <path>]
+  [--enable-preview-runtime] [--disable-preview-runtime]
+
+# Datasource management
+fabio data-agent list-datasources --workspace <ws> --id <id>
+fabio data-agent show-datasource --workspace <ws> --id <id> --datasource <name-or-id>
+fabio data-agent add-datasource --workspace <ws> --id <id> --artifact <name-or-id>
+  [--artifact-type <Lakehouse|Warehouse|KQLDatabase|SemanticModel|...>]
+  [--artifact-workspace <ws-id>] [--instructions <text>]
+fabio data-agent remove-datasource --workspace <ws> --id <id> --datasource <name-or-id>
+fabio data-agent select-tables --workspace <ws> --id <id> --datasource <name-or-id>
+  (--tables <t1,t2> | --all-tables) [--unselect]
+
+# Element descriptions
+fabio data-agent list-elements --workspace <ws> --id <id> --datasource <name-or-id>
+fabio data-agent describe-element --workspace <ws> --id <id> --datasource <name-or-id>
+  --path <dbo.table.column> [--description <text>]
+
+# Few-shot examples
+fabio data-agent list-fewshots --workspace <ws> --id <id> --datasource <name-or-id>
+fabio data-agent add-fewshot --workspace <ws> --id <id> --datasource <name-or-id>
+  --question <text> --answer <sql-or-kql>   (--sql is alias for --answer)
+fabio data-agent remove-fewshot --workspace <ws> --id <id> --datasource <name-or-id>
+  --fewshot-id <uuid>
+fabio data-agent upload-fewshots --workspace <ws> --id <id> --datasource <name-or-id>
+  --file <path>   (JSON: [{"question":"...","query":"..."}] or CSV with question/query columns)
+
+# Query and publish
+fabio data-agent query --workspace <ws> --id <id> [--prompt <text>|stdin]
+  [--stage sandbox|production] [--timeout <secs>] [--show-steps]
+fabio data-agent publish --workspace <ws> --id <id> [--description <text>] [--to-m365]
 ```
 
 ### ontology

@@ -908,21 +908,139 @@ fabio deploy apply --source ./fabric-export --workspace $WS --no-post-hooks
 fabio deploy apply --source ./fabric-export --workspace "My Workspace Name"
 ```
 
-## Data Agent (AI-Powered Q&A)
+## Data Agents (AI-powered Q&A)
 
-### Create and Configure Data Agent
+### Create and Configure a Data Agent
+
 ```bash
-# Create data agent
+# Create a data agent
 DA=$(fabio data-agent create --workspace $WS --name "SalesAssistant" -q id -o plain)
 
-# Configure AI instructions via definition
-fabio data-agent update-definition --workspace $WS --id $DA --file data-agent-config/
+# Set AI instructions (inline)
+fabio data-agent update-config --workspace $WS --id $DA \
+  --instructions "Answer questions about sales data. Use SQL for lakehouse tables."
 
-# Query the data agent (chat interface)
-fabio data-agent query --workspace $WS --id $DA --message "What were total sales last quarter?"
+# Load instructions from a file (useful for multi-line instructions)
+fabio data-agent update-config --workspace $WS --id $DA \
+  --instructions-file instructions.txt
 
-# Publish the agent (makes it available via URL)
-fabio data-agent publish --workspace $WS --id $DA
+# Enable preview runtime (agentic NL2SQL reasoning path)
+fabio data-agent update-config --workspace $WS --id $DA --enable-preview-runtime
+
+# Read current config
+fabio data-agent get-config --workspace $WS --id $DA
+```
+
+### Datasource Management
+
+```bash
+# Add a lakehouse (auto-detects type from artifact name/ID)
+fabio data-agent add-datasource --workspace $WS --id $DA \
+  --artifact "SalesLakehouse"
+
+# Add with explicit type and per-source instructions
+fabio data-agent add-datasource --workspace $WS --id $DA \
+  --artifact $LH --artifact-type Lakehouse \
+  --instructions "Contains product catalog and order history"
+
+# Add a warehouse from another workspace
+fabio data-agent add-datasource --workspace $WS --id $DA \
+  --artifact "AnalyticsWarehouse" --artifact-workspace $OTHER_WS
+
+# List and inspect configured data sources
+fabio data-agent list-datasources --workspace $WS --id $DA
+fabio data-agent show-datasource --workspace $WS --id $DA --datasource "SalesLakehouse"
+
+# Remove a data source (also removes its few-shots)
+fabio data-agent remove-datasource --workspace $WS --id $DA --datasource "SalesLakehouse"
+```
+
+### Table Selection
+
+```bash
+# Select specific tables for the agent
+fabio data-agent select-tables --workspace $WS --id $DA \
+  --datasource $LH --tables "orders,products,customers"
+
+# Select all tables
+fabio data-agent select-tables --workspace $WS --id $DA \
+  --datasource $LH --all-tables
+
+# Unselect specific tables
+fabio data-agent select-tables --workspace $WS --id $DA \
+  --datasource $LH --tables "staging_raw" --unselect
+```
+
+### Element Descriptions
+
+```bash
+# List all elements (tables/columns) with selection state and descriptions
+fabio data-agent list-elements --workspace $WS --id $DA --datasource $LH
+
+# Set a description on a table
+fabio data-agent describe-element --workspace $WS --id $DA \
+  --datasource $LH --path "dbo.orders" \
+  --description "Customer orders with amounts and shipping dates"
+
+# Set a description on a column
+fabio data-agent describe-element --workspace $WS --id $DA \
+  --datasource $LH --path "dbo.orders.total_amount" \
+  --description "Total order value in USD including tax"
+
+# Clear a description (omit --description)
+fabio data-agent describe-element --workspace $WS --id $DA \
+  --datasource $LH --path "dbo.orders.total_amount"
+```
+
+### Few-shot Examples
+
+```bash
+# Add a single example (use --answer, NOT --query which is the JMESPath flag)
+fabio data-agent add-fewshot --workspace $WS --id $DA \
+  --datasource $LH \
+  --question "Who is the top customer by revenue?" \
+  --answer "SELECT TOP 1 customer_name, SUM(total_amount) FROM orders GROUP BY customer_name ORDER BY 2 DESC"
+
+# Bulk upload from JSON file: [{"question":"...","query":"..."}]
+fabio data-agent upload-fewshots --workspace $WS --id $DA \
+  --datasource $LH --file fewshots.json
+
+# Bulk upload from CSV file (columns: question, query or answer)
+fabio data-agent upload-fewshots --workspace $WS --id $DA \
+  --datasource $LH --file fewshots.csv
+
+# List and remove few-shots
+fabio data-agent list-fewshots --workspace $WS --id $DA --datasource $LH
+FEWSHOT_ID=$(fabio data-agent list-fewshots --workspace $WS --id $DA \
+  --datasource $LH -q 'data[0].id' -o plain)
+fabio data-agent remove-fewshot --workspace $WS --id $DA \
+  --datasource $LH --fewshot-id $FEWSHOT_ID
+```
+
+### Publishing and Querying
+
+```bash
+# Publish the agent (activates the chat endpoint — no portal needed)
+fabio data-agent publish --workspace $WS --id $DA --description "v1.0 production"
+
+# Also publish to M365 Copilot Agent Store
+fabio data-agent publish --workspace $WS --id $DA --to-m365
+
+# Query the published agent
+fabio data-agent query --workspace $WS --id $DA \
+  --prompt "What were total sales last quarter?"
+
+# Query the draft (sandbox) agent before publishing
+fabio data-agent query --workspace $WS --id $DA \
+  --stage sandbox --prompt "Test: how many orders?"
+
+# Query with custom timeout (default: 300s)
+fabio data-agent query --workspace $WS --id $DA \
+  --prompt "Complex analysis..." --timeout 600 --show-steps
+
+# Pipe question from stdin
+echo "How many orders last month?" | \
+  fabio data-agent query --workspace $WS --id $DA
 ```
 
 ## Ontology & Graph Model
