@@ -390,7 +390,45 @@ Single-part `updateDefinition` with only a datasource file is silently dropped. 
 - `data_agent.json` + `stage_config.json` + `datasource.json`
 
 ### Data Source Types
-`unknown`, `lakehouse_tables`, `lakehouse`, `data_warehouse`, `kusto`, `semantic_model`, `graph`, `mirrored_database`, `mirrored_azure_databricks`
+`unknown`, `lakehouse_tables`, `lakehouse`, `data_warehouse`, `kusto`, `semantic_model`, `graph`, `mirrored_database`, `mirrored_azure_databricks`, `ontology`, `sql_database`
+
+### Datasource Type Mapping (Fabric item → internal type)
+Supported artifact types for `add-datasource`: `Lakehouse` → `lakehouse_tables`, `Warehouse` → `data_warehouse`, `KQLDatabase` → `kusto`, `SemanticModel` → `semantic_model`, `Ontology` → `ontology`, `GraphModel` → `graph`, `MirroredDatabase` → `mirrored_database`, `SQLDatabase` → `sql_database`
+
+### `--answer` vs `--query` on add-fewshot
+The `add-fewshot` command uses `--answer` (not `--query`) for the SQL/KQL value because `--query` is the reserved global JMESPath flag. Using `--query` causes the JMESPath engine to evaluate the SQL text and produce null output. The flag `--sql` is a visible alias for `--answer`.
+
+```bash
+# Correct
+fabio data-agent add-fewshot --workspace $WS --id $DA \
+  --datasource $LH --question "Top customer?" \
+  --answer "SELECT TOP 1 customer_name FROM orders ORDER BY total DESC"
+
+# Wrong — --query is intercepted by JMESPath engine
+fabio data-agent add-fewshot --workspace $WS --id $DA \
+  --datasource $LH --question "..." --query "SELECT ..."  # null output
+```
+
+### Duplicate Few-shot Auto-rename
+When uploading a few-shot question that already exists (exact match), the new entry is auto-renamed with a `[N]` suffix (e.g., `Who is the top customer? [1]`). This matches the official Python SDK behavior and prevents silent overwrite.
+
+### Few-shot Upload File Formats
+`upload-fewshots` accepts JSON or CSV/TSV:
+- **JSON**: `[{"question":"...","query":"..."}]` (array of objects)
+- **CSV**: header row with `question` and `query` (or `answer`) columns; case-insensitive headers; empty rows silently skipped
+- **TSV**: same as CSV but tab-delimited (auto-detected by `.tsv` extension)
+
+### update-config --instructions-file
+`--instructions-file <path>` loads AI instructions from a file, useful for multi-line text. Mutually exclusive with `--instructions` (both cannot be specified together).
+
+### Preview Runtime
+`--enable-preview-runtime` sets `experimental.enableExperimentalFeatures: true` in `stage_config.json`, activating the agentic NL2SQL reasoning path. Use `--disable-preview-runtime` to turn it off.
+
+### Operability Limits
+- Max **5 datasources** per agent
+- Max **100 few-shot examples** per datasource
+- Agent responses capped at **25 rows** and **25 columns**
+- Cross-region limitation: agent capacity must be in same region as data source capacity
 
 ### Publishing via CI/CD (Officially Supported)
 `fabio data-agent publish` copies all `Files/Config/draft/*` parts to `Files/Config/published/*` and adds `publish_info.json` via `updateDefinition`. This is the officially documented CI/CD publish path (confirmed June 2026 — no portal required).
@@ -406,6 +444,9 @@ The publish_info.json format:
 
 Publishing activates the OpenAI Assistants-compatible endpoint:
 `https://api.fabric.microsoft.com/v1/workspaces/{wsId}/dataagents/{agentId}/aiassistant/openai`
+
+### M365 Copilot Agent Store Publishing
+`--to-m365` on `publish` additionally calls the internal M365 endpoint to register the agent in the Microsoft 365 Copilot Agent Store. Requires a successful standard publish first.
 
 ## Definition Operations (Generic Pattern)
 
@@ -913,11 +954,20 @@ Where:
 - `stage`: `draft` or `published`
 - `type`: full type value (e.g., `lakehouse-tables`, `data-warehouse`, `kusto`, `graph`)
 
-### Data Source Type Enum
-`unknown`, `lakehouse_tables`, `lakehouse`, `data_warehouse`, `kusto`, `semantic_model`, `graph`, `mirrored_database`, `mirrored_azure_databricks`
+### Stage Mapping for Query
+`--stage sandbox|production` maps to internal values: `draft`/`sandbox` → `sandbox`, `publishing`/`production` → `production`. Default is the published endpoint.
 
-### Full Definition Required
-Single-part `updateDefinition` with only the datasource file is silently dropped (202 accepted but not persisted). Must include ALL definition parts together for persistence.
+### Stdin Fallback for `--prompt`
+When `--prompt` is omitted, `data-agent query` reads the question from stdin. This enables shell pipelines without repeating the flag:
+
+```bash
+# Equivalent — stdin is used when --prompt is absent
+echo "How many orders last month?" | \
+  fabio data-agent query --workspace $WS --id $DA
+```
+
+### Element Types for Descriptions
+Descriptions can be set on: `lakehouse_tables.table`, `lakehouse_tables.column`, `warehouse_tables.table`, `warehouse_tables.column`, `mirrored_database.table`, `mirrored_database.column`, `sql_database.table`, `sql_database.column` (plus their `.view` variants).
 
 ## Environment API
 
