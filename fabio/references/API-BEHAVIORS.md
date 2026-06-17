@@ -1455,3 +1455,27 @@ Uses `git diff --name-status <REF>` to determine changed item directories. Items
 - **`--format jsonld` produces valid RDF**: JSON-LD with `@context` vocabulary (`https://api.fabric.microsoft.com/ontology/`) and `@graph` array. Items become `urn:fabric:item:{uuid}` resources typed as `fabric:{ItemType}`. Edges inlined as typed properties (e.g., `fabric:defaultLakehouse`). Multiple edges of same type become JSON arrays. Compatible with Neptune, Stardog, Jena, and any SPARQL endpoint.
 - **Performance benchmarks (20 workspaces, 154 items)**: Shallow: 7.7s, 2 edges. Deep + connections: 4m18s, 88 edges. No-properties: ~3s, 0 edges. LRO polling is the deep mode bottleneck (2-6s per `getDefinition` call, 8 concurrent).
 - **Concurrency auto-scales to CPU count** (v0.25.0+): Default concurrency is `min(cpus * 4, 16)` instead of a hardcoded 8. I/O-bound workload (HTTP round-trips) benefits from higher concurrency. On a 4-core machine, default is now 16, approximately halving deep-mode time. Override with `--concurrency <N>`.
+
+## Azure Databricks Storage API Behaviors
+
+- **Item type**: `AzureDatabricksStorage` — Fabric item type for Azure Databricks integration.
+- **Definition format**: `AzureDatabricksStorageV1`. Definition file path is `definition.json` (not `AzureDatabricksStorage.json` — corrected from initial implementation per API spec examples).
+- **Create is LRO**: `POST /workspaces/{ws}/azureDatabricksStorages` returns 202, requires polling.
+- **getDefinition is LRO**: Returns 202, polled to completion. Returns `definition.json` + `.platform` parts.
+- **updateDefinition is LRO**: Returns 202, polled to completion.
+- **Standard CRUD endpoints**: `/workspaces/{ws}/azureDatabricksStorages/{id}`.
+- **`--hard-delete` supported**: `DELETE .../azureDatabricksStorages/{id}?hardDelete=true` permanently removes (skips recycle bin).
+- **Registered in DEPLOY_ORDER**: AzureDatabricksStorage is included in the 46-item deploy ordering for CI/CD pipelines. DEPLOY_ORDER now contains 46 item types (up from 45).
+- **Endpoint pattern**: `/workspaces/{ws}/azureDatabricksStorages/{id}`.
+
+## Data Pipeline Schedule and Instance Management
+
+- **Schedule endpoints use `/jobs/execute/schedules`**: `POST /workspaces/{ws}/dataPipelines/{id}/jobs/execute/schedules` to create. Note: uses `/jobs/execute/schedules` (NOT `/jobs/Pipeline/schedules`).
+- **list-schedules**: `GET /workspaces/{ws}/dataPipelines/{id}/jobs/execute/schedules` — paginated list of pipeline schedules.
+- **get-schedule**: `GET /workspaces/{ws}/dataPipelines/{id}/jobs/execute/schedules/{schedule_id}`.
+- **update-schedule**: `PATCH /workspaces/{ws}/dataPipelines/{id}/jobs/execute/schedules/{schedule_id}` with `--content` JSON body. Requires at least `--content` or `--file`. Supports `--dry-run`.
+- **delete-schedule**: `DELETE /workspaces/{ws}/dataPipelines/{id}/jobs/execute/schedules/{schedule_id}`.
+- **list-instances**: `GET /workspaces/{ws}/dataPipelines/{id}/jobs/execute/instances` — paginated job execution history.
+- **get-instance**: `GET /workspaces/{ws}/dataPipelines/{id}/jobs/execute/instances/{instance_id}` — details of a specific pipeline run.
+- **Requires Contributor role**: All schedule and instance management operations require Contributor role on the workspace.
+- **Distinct from job-scheduler**: `data-pipeline list-schedules` is pipeline-specific via the `/dataPipelines/` endpoint. The generic `job-scheduler` command works with any item type via `/items/{id}/jobs/{jobType}/schedules`.

@@ -292,7 +292,13 @@ fabio data-pipeline delete --workspace <ws> --id <id>
 fabio data-pipeline run --workspace <ws> --id <id>
 fabio data-pipeline get-definition --workspace <ws> --id <id>
 fabio data-pipeline update-definition --workspace <ws> --id <id> --file <path>
-fabio data-pipeline create-schedule --workspace <ws> --id <id> ...
+fabio data-pipeline create-schedule --workspace <ws> --id <id> (--file <path> | --content '<json>')
+fabio data-pipeline list-schedules --workspace <ws> --id <id>
+fabio data-pipeline get-schedule --workspace <ws> --id <id> --schedule-id <schedule-id>
+fabio data-pipeline update-schedule --workspace <ws> --id <id> --schedule-id <schedule-id> (--file <path> | --content '<json>')
+fabio data-pipeline delete-schedule --workspace <ws> --id <id> --schedule-id <schedule-id>
+fabio data-pipeline list-instances --workspace <ws> --id <id>
+fabio data-pipeline get-instance --workspace <ws> --id <id> --instance-id <instance-id>
 ```
 
 ### copy-job
@@ -840,6 +846,17 @@ fabio mounted-data-factory update --workspace <ws> --id <id> --name <new-name>
 fabio mounted-data-factory delete --workspace <ws> --id <id>
 fabio mounted-data-factory get-definition --workspace <ws> --id <id>
 fabio mounted-data-factory update-definition --workspace <ws> --id <id> --file <path>
+```
+
+### azure-databricks-storage
+```
+fabio azure-databricks-storage list --workspace <ws>
+fabio azure-databricks-storage show --workspace <ws> --id <id>
+fabio azure-databricks-storage create --workspace <ws> --name <name> [--description <desc>]
+fabio azure-databricks-storage update --workspace <ws> --id <id> [--name <new-name>] [--description <desc>]
+fabio azure-databricks-storage delete --workspace <ws> --id <id> [--hard-delete]
+fabio azure-databricks-storage get-definition --workspace <ws> --id <id> [--decode]
+fabio azure-databricks-storage update-definition --workspace <ws> --id <id> (--file <path> | --content '<json>')
 ```
 
 ## Integration & DevOps
