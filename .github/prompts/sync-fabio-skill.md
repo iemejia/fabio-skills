@@ -39,12 +39,14 @@ fabio-skills/
 Check `./fabio-upstream/Cargo.toml` for the current version and update:
 - `metadata.version` in `fabio/SKILL.md` frontmatter
 
-### 2. README.md Stats
+### 2. README.md and COMMANDS.md Stats Consistency
 
 Compare the numbers in `README.md` against the upstream `AGENTS.md` Progress section:
 - Total command groups count
 - Total subcommands count
 - Any new highlights or features worth mentioning
+
+The command group and subcommand counts displayed in `README.md` (e.g., in the skill structure section) **MUST match** the actual counts in `fabio/references/COMMANDS.md`. After updating COMMANDS.md with new or removed commands, count the resulting totals and update README.md accordingly. These two files must always be in agreement — if COMMANDS.md lists 78 groups and 850 subcommands, README.md must reflect those exact same numbers and viceversa.
 
 ### 3. New Commands → Update `fabio/references/COMMANDS.md`
 
@@ -148,6 +150,7 @@ Before finishing, verify:
 - [ ] Examples use consistent variable naming ($WS, $LH, $WH, $CAP, etc.)
 - [ ] No duplicate entries in COMMANDS.md
 - [ ] README.md stats are current
+- [ ] Command group and subcommand counts in README.md match the actual totals in COMMANDS.md
 
 ## Output
 
