@@ -232,7 +232,7 @@ These are essential for correct operation. See [references/API-BEHAVIORS.md](ref
 
 ## Command Groups
 
-fabio has 74 command groups with 800+ subcommands covering the full Fabric API surface. See [references/COMMANDS.md](references/COMMANDS.md) for the complete reference.
+fabio has 75 command groups with 820+ subcommands covering the full Fabric API surface. See [references/COMMANDS.md](references/COMMANDS.md) for the complete reference.
 
 **Core**: auth, workspace, item, lakehouse, capacity, catalog, context
 **Data & Compute**: notebook, warehouse, sql-database, sql-endpoint, data-pipeline (including schedule management: create/list/get/update/delete-schedule; and instance history: list-instances, get-instance), copy-job, dataflow, environment, data-agent, ontology
