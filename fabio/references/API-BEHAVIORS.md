@@ -1466,7 +1466,6 @@ Uses `git diff --name-status <REF>` to determine changed item directories. Items
 - **Standard CRUD endpoints**: `/workspaces/{ws}/azureDatabricksStorages/{id}`.
 - **`--hard-delete` supported**: `DELETE .../azureDatabricksStorages/{id}?hardDelete=true` permanently removes (skips recycle bin).
 - **Registered in DEPLOY_ORDER**: AzureDatabricksStorage is included in the 46-item deploy ordering for CI/CD pipelines. DEPLOY_ORDER now contains 46 item types (up from 45).
-- **Endpoint pattern**: `/workspaces/{ws}/azureDatabricksStorages/{id}`.
 
 ## Data Pipeline Schedule and Instance Management
 
