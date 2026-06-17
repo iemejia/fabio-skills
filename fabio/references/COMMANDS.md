@@ -1,6 +1,6 @@
 # fabio Command Reference
 
-Complete command reference organized by functional area (74 groups, 800+ subcommands).
+Complete command reference organized by functional area (75 groups, 820+ subcommands).
 
 ## Global Flags
 
