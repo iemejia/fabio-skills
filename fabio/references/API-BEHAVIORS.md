@@ -1224,7 +1224,7 @@ When `private_link_workspace` is configured via profile, URLs are transformed fo
 - **Create is LRO**: `POST /workspaces/{ws}/appBackends` returns 202 and is polled to completion
 - **Hard delete**: `--hard-delete` appends `?hardDelete=true` to permanently delete (skip recycle bin)
 - **Update requires at least one field**: `--name` or `--description` is mandatory; omitting both returns `INVALID_INPUT`
-- **agent-context coverage**: `fabio agent-context` includes full `app-backend` schema with `--hard-delete` flag typed as bool
+- **context coverage**: `fabio context agent` includes full `app-backend` schema with `--hard-delete` flag typed as bool
 
 ## Enhanced Error Output (v0.20.0+)
 
