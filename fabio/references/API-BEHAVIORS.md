@@ -426,8 +426,6 @@ The Fabric Ontology API uses ordered JSON deserialization for data bindings. `so
 - `full` output contains both `owl:Class` schema AND `rdf:Description` instance data in one file
 - `owl` output is bare JSON-LD without `{"data":...}` envelope — directly consumable by ontology import parser
 
-
-
 ### Definition Persistence Rule
 Single-part `updateDefinition` with only a datasource file is silently dropped. Must include ALL parts together:
 - `data_agent.json` + `stage_config.json` + `datasource.json`

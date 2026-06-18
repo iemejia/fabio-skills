@@ -1223,6 +1223,8 @@ fabio ontology import --workspace $WS --id $ONT --file tenant.rdf
 # --format full    = schema + instances, RDF/XML (importable anywhere)
 ```
 
+## Workspace Networking & Security
+
 ### Configure Firewall Rules
 ```bash
 # Get current network policy
