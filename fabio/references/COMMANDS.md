@@ -181,42 +181,6 @@ fabio capacity check-name --subscription <sub> --location <region> --name <name>
 fabio catalog search --content '{"searchString":"<text>","top":N}'
 ```
 
-### context
-```
-# ── Offline knowledge (no API calls) ──
-fabio context agent                       Machine-readable command schema (auth_scope, returns, flags for all commands)
-fabio context schema <TYPE>               Item type definition format (e.g., Notebook, Lakehouse, KQLDatabase)
-fabio context workflow <NAME>             Multi-step workflow recipe (rti-pipeline, direct-lake-report, cicd-deploy, lakehouse-etl, data-agent-setup)
-fabio context best-practices <TOPIC>      Operational guidance: throttling, lro, pagination, admin-apis
-fabio context examples <GROUP> <CMD>      Output shape example for a specific command (20 examples registered)
-fabio context list                        List all available schema/workflow/best-practices/examples topics
-
-# ── Live workspace graph (requires API calls) ──
-fabio context tenant --workspace <ws>     Extract graph of items and relationships from workspace(s)
-  --workspace <id|name>     Workspace to scan (repeatable — pass multiple times for multi-workspace)
-  --deep                    Fetch item definitions to discover embedded UUID references (slower)
-  --include-connections     Include connection objects as graph edges
-  --item-types <T1,T2>      Filter to specific item types (comma-separated, case-insensitive)
-  --no-properties           Skip type-specific GET calls; inventory only (~3s for 20 workspaces)
-  --format <graph|jsonld>   Output format: graph (default JSON) or jsonld (RDF-compatible JSON-LD)
-  --output-file <path>      Write graph JSON to file instead of stdout
-  --merge <existing.json>   Load existing graph file and union new nodes/edges into it (idempotent)
-  --concurrency <n>         Concurrent API calls (default 8)
-  --dry-run                 Preview what would be scanned without API calls
-```
-
-Output structure (default format):
-```json
-{"data": {
-  "nodes": [{"id":"<uuid>","type":"Notebook","name":"...","workspaceId":"...","properties":{...}}],
-  "edges": [{"source":"<uuid>","target":"<uuid>","relationship":"default_lakehouse"}],
-  "workspaces": [{"id":"<uuid>","name":"..."}],
-  "summary": {"totalNodes":N,"totalEdges":N,"itemTypes":{...}}
-}}
-```
-
-Relationship types discovered: `child_of`, `has_endpoint`, `default_lakehouse`, `bound_to_model`, `reads_from`, `streams_to`, `queries`, `executes`, `definition_ref`, `workspace_ref`, `connected_via`
-
 ## Data & Compute
 
 ### notebook
@@ -1108,10 +1072,32 @@ fabio context examples <GROUP> <CMD>    Output shape example (20 registered)
 fabio context list                      Discover all available topics
 
 # Layer 3: Environment layer — what's in YOUR workspace
-fabio context tenant --workspace $WS [--deep] [--include-connections] [--no-properties]
+fabio context tenant --workspace <ws>     Extract graph of items and relationships from workspace(s)
+  --workspace <id|name>     Workspace to scan (repeatable — pass multiple times for multi-workspace)
+  --deep                    Fetch item definitions to discover embedded UUID references (slower)
+  --include-connections     Include connection objects as graph edges
+  --item-types <T1,T2>      Filter to specific item types (comma-separated, case-insensitive)
+  --no-properties           Skip type-specific GET calls; inventory only (~3s for 20 workspaces)
+  --format <graph|jsonld>   Output format: graph (default JSON) or jsonld (RDF-compatible JSON-LD)
+  --output-file <path>      Write graph JSON to file instead of stdout
+  --merge <existing.json>   Load existing graph file and union new nodes/edges into it (idempotent)
+  --concurrency <n>         Concurrent API calls (default 8)
+  --dry-run                 Preview what would be scanned without API calls
 ```
 
 All knowledge layers except `tenant` are offline (no API calls, embedded in binary).
+
+Output structure (default format):
+```json
+{"data": {
+  "nodes": [{"id":"<uuid>","type":"Notebook","name":"...","workspaceId":"...","properties":{...}}],
+  "edges": [{"source":"<uuid>","target":"<uuid>","relationship":"default_lakehouse"}],
+  "workspaces": [{"id":"<uuid>","name":"..."}],
+  "summary": {"totalNodes":N,"totalEdges":N,"itemTypes":{...}}
+}}
+```
+
+Relationship types discovered: `child_of`, `has_endpoint`, `default_lakehouse`, `bound_to_model`, `reads_from`, `streams_to`, `queries`, `executes`, `definition_ref`, `workspace_ref`, `connected_via`
 
 ### completions
 ```
