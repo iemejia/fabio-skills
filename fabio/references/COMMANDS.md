@@ -1,6 +1,6 @@
 # fabio Command Reference
 
-Complete command reference organized by functional area (74 groups, 843+ subcommands).
+Complete command reference organized by functional area (74 groups, 845+ subcommands).
 
 ## Global Flags
 
@@ -378,6 +378,17 @@ fabio ontology update --workspace <ws> --id <id> --name <new-name>
 fabio ontology delete --workspace <ws> --id <id>
 fabio ontology get-definition --workspace <ws> --id <id> [--decode] [--dir <path>]
 fabio ontology update-definition --workspace <ws> --id <id> --file <path> [--dir <path>]
+fabio ontology import --workspace <ws> --id <id> --file <path>   Import OWL into Fabric Ontology
+  --workspace <id>        Target workspace
+  --id <id>               Target Ontology item ID (push directly to Fabric)
+  --file <path>           OWL file (.rdf/.owl/.xml = RDF/XML; .jsonld/.json = JSON-LD)
+  --output-dir <path>     Write EntityTypes/RelationshipTypes locally instead of pushing
+  --dry-run               Preview mapping without pushing
+fabio ontology export --workspace <ws> --id <id> --format <rdf|jsonld> [--file <path>]
+  --workspace <id>        Source workspace
+  --id <id>               Source Ontology item ID
+  --format <rdf|jsonld>   rdf = OWL RDF/XML (Ontology Playground compatible); jsonld = OWL JSON-LD
+  --file <path>           Write to file (default: stdout)
 ```
 
 ### graphql-api
@@ -1078,7 +1089,7 @@ fabio context tenant --workspace <ws>     Extract graph of items and relationshi
   --include-connections     Include connection objects as graph edges
   --item-types <T1,T2>      Filter to specific item types (comma-separated, case-insensitive)
   --no-properties           Skip type-specific GET calls; inventory only (~3s for 20 workspaces)
-  --format <graph|jsonld>   Output format: graph (default JSON) or jsonld (RDF-compatible JSON-LD)
+  --format <graph|jsonld|owl|rdf|full>   Output format: graph (default JSON instances), jsonld (RDF JSON-LD instances), owl (OWL JSON-LD schema importable by ontology import), rdf (OWL RDF/XML schema importable by ontology import + Ontology Playground), full (combined schema+instances RDF/XML)
   --output-file <path>      Write graph JSON to file instead of stdout
   --merge <existing.json>   Load existing graph file and union new nodes/edges into it (idempotent)
   --concurrency <n>         Concurrent API calls (default: min(cpus×4, 16), v0.25.0+)

@@ -383,7 +383,50 @@ The Fabric Ontology API uses ordered JSON deserialization for data bindings. `so
 }
 ```
 
-## Data Agent API
+### OWL Import: Supported Formats and Mapping
+
+`fabio ontology import` parses OWL ontologies and converts them to Fabric's internal definition format:
+
+- **Format detection**: Extension-based — `.rdf`, `.owl`, `.xml` → RDF/XML (parsed via quick-xml); `.jsonld`, `.json` → JSON-LD
+- **OWL → Fabric mapping**:
+  - `owl:Class` → `EntityType`
+  - `owl:DatatypeProperty` (with `rdfs:domain`) → property on the parent EntityType
+  - `owl:ObjectProperty` → `RelationshipType` (domain/range → source/target)
+  - `ont:isIdentifier` → `entityIdParts` (key property)
+  - XSD types → Fabric `valueType`: `xsd:string` → `String`, `xsd:integer`/`xsd:long` → `BigInt`, `xsd:double`/`xsd:float` → `Double`, `xsd:boolean` → `Boolean`, `xsd:dateTime` → `DateTime`
+- **Ontology Playground compatible**: Files from [microsoft/Ontology-Playground](https://github.com/microsoft/Ontology-Playground) (`.rdf` catalogue files) import directly with no transformation
+- **Two modes**: `--workspace + --id` pushes directly to a Fabric Ontology item; `--output-dir` writes the EntityTypes/RelationshipTypes directory structure locally for inspection
+
+### OWL Export: Fabric → OWL Conversion
+
+`fabio ontology export` reads a Fabric Ontology via REST API and serializes to standard OWL:
+
+- **Format `rdf`**: OWL RDF/XML — compatible with Ontology Playground, Protégé, rdflib, Apache Jena, and `fabio ontology import`
+- **Format `jsonld`**: OWL JSON-LD — importable by `fabio ontology import` and standard JSON-LD processors
+- **Fabric → OWL mapping**:
+  - `EntityType` → `owl:Class`
+  - EntityType properties → `owl:DatatypeProperty` (with XSD range types)
+  - `entityIdParts` → `ont:isIdentifier` annotation
+  - `RelationshipType` → `owl:ObjectProperty` (domain/range from source/target)
+- **Round-trip verified**: Import → Export → Re-import preserves entity types, properties, and relationships
+
+### Context Tenant OWL/RDF Formats
+
+`fabio context tenant` now supports 5 output formats (3 new in v0.29.0):
+
+| Format | Content | Use case |
+|--------|---------|----------|
+| `graph` | Instance data, native arrays | Agent memory, JMESPath, merge |
+| `jsonld` | Instance data, RDF JSON-LD | Triple stores, SPARQL |
+| `owl` | Schema only, OWL JSON-LD | `fabio ontology import`, Ontology Playground |
+| `rdf` | Schema only, OWL RDF/XML | `fabio ontology import`, Ontology Playground, Protégé |
+| `full` | Schema + instances, RDF/XML | Universal — triple stores + Fabric Ontology import |
+
+- `rdf` output does NOT contain `rdf:Description` nodes (schema only)
+- `full` output contains both `owl:Class` schema AND `rdf:Description` instance data in one file
+- `owl` output is bare JSON-LD without `{"data":...}` envelope — directly consumable by ontology import parser
+
+
 
 ### Definition Persistence Rule
 Single-part `updateDefinition` with only a datasource file is silently dropped. Must include ALL parts together:

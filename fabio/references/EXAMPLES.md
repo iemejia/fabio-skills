@@ -1173,7 +1173,55 @@ fabio graph-model execute-query --workspace $WS --id $GM \
   --query "nodes() | where type == 'Equipment' | take 10"
 ```
 
-## Workspace Networking & Security
+### OWL Import/Export Round-Trip
+
+```bash
+# Import OWL from Ontology Playground catalogue directly into Fabric
+fabio ontology import --workspace $WS --id $ONT --file cosmic-coffee.rdf
+
+# Import JSON-LD ontology into Fabric
+fabio ontology import --workspace $WS --id $ONT --file ontology.jsonld
+
+# Preview what would be imported (no API calls)
+fabio ontology import --workspace $WS --id $ONT --file schema.rdf --dry-run
+
+# Export Fabric Ontology to OWL RDF/XML (Ontology Playground compatible)
+fabio ontology export --workspace $WS --id $ONT --format rdf --file out.rdf
+
+# Export to OWL JSON-LD
+fabio ontology export --workspace $WS --id $ONT --format jsonld --file out.jsonld
+
+# Export to stdout (pipe to another tool)
+fabio ontology export --workspace $WS --id $ONT --format rdf
+
+# Full round-trip: export from one ontology, import into another
+fabio ontology export --workspace $WS --id $ONT --format rdf --file out.rdf
+fabio ontology import --workspace $WS --id $ONT2 --file out.rdf
+```
+
+### Context Tenant → Ontology Pipeline
+
+```bash
+# Extract tenant topology as OWL JSON-LD schema, then import into Fabric Ontology
+fabio context tenant --workspace $WS --deep --format owl --output-file tenant.jsonld
+fabio ontology import --workspace $WS --id $ONT --file tenant.jsonld
+
+# Extract as OWL RDF/XML (compatible with Ontology Playground and fabio ontology import)
+fabio context tenant --workspace $WS --deep --format rdf --output-file tenant.rdf
+fabio ontology import --workspace $WS --id $ONT --file tenant.rdf
+
+# Extract as "full" format (schema + instances in one file — works everywhere)
+# Contains owl:Class schema + rdf:Description instance data
+fabio context tenant --workspace $WS --deep --format full --output-file tenant.rdf
+fabio ontology import --workspace $WS --id $ONT --file tenant.rdf
+
+# Format comparison:
+# --format graph   = instance data, native arrays (merge, JMESPath, agents)
+# --format jsonld  = instance data, RDF JSON-LD (triple stores, SPARQL)
+# --format owl     = schema only, OWL JSON-LD (fabio ontology import)
+# --format rdf     = schema only, OWL RDF/XML (fabio ontology import, Ontology Playground)
+# --format full    = schema + instances, RDF/XML (importable anywhere)
+```
 
 ### Configure Firewall Rules
 ```bash
