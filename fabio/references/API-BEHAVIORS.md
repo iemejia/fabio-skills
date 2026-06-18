@@ -1467,7 +1467,7 @@ Uses `git diff --name-status <REF>` to determine changed item directories. Items
 - **`ingest` uses management endpoint**: Inline CSV ingestion calls `POST /v1/rest/mgmt` with `.ingest inline into table <name> <| <data>` syntax. Limit ~4MB of inline data. Not suitable for large datasets.
 - **`show-queryplan` uses management endpoint**: Calls `.show queryplan <kql>` via `/v1/rest/mgmt`. Returns operator tree — useful for diagnosing slow queries without executing them.
 - **`diagnostics` may fail per-section**: Aggregates `.show capacity`, `.show cluster`, and `.show diagnostics` as separate calls. If any section fails (e.g., capacity API not available on Basic tier), the rest still succeed. Check `status` per section.
-- **`deeplink` auto-detects portal vs ADX**: If KQL URI contains `.kusto.fabric.microsoft.com`, generates Fabric portal URL (`https://fabric.microsoft.com/...`). If it contains `.kusto.windows.net`, generates ADX Web Explorer URL (`https://dataexplorer.azure.com/...`). The KQL is URL-encoded and embedded in the link.
+- **`deeplink` auto-detects portal vs ADX**: If KQL URI contains `.kusto.fabric.microsoft.com`, generates Fabric portal URL (`https://app.fabric.microsoft.com/...`). If it contains `.kusto.windows.net`, generates ADX Web Explorer URL (`https://dataexplorer.azure.com/...`). The KQL is URL-encoded and embedded in the link.
 
 ## Reflex Create-Trigger (v0.28.0)
 
@@ -1475,8 +1475,6 @@ Uses `git diff --name-status <REF>` to determine changed item directories. Items
 - **Graceful failure if definition push fails**: After creating the Reflex item, if `update-definition` fails (known limitation when using KQL source type), the command still succeeds and reports the created item ID with a hint to use `fabio reflex update-definition` manually.
 - **`--action email|teams`**: Only two action types supported. `email` sends to `--recipients` addresses. `teams` posts to the Teams channel webhook in `--recipients`.
 - **`--interval` defaults to 60 seconds**: Sets the polling interval for condition evaluation.
-
-
 
 ## Azure Databricks Storage API Behaviors
 

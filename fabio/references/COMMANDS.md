@@ -1081,7 +1081,7 @@ fabio context tenant --workspace <ws>     Extract graph of items and relationshi
   --format <graph|jsonld>   Output format: graph (default JSON) or jsonld (RDF-compatible JSON-LD)
   --output-file <path>      Write graph JSON to file instead of stdout
   --merge <existing.json>   Load existing graph file and union new nodes/edges into it (idempotent)
-  --concurrency <n>         Concurrent API calls (default 8)
+  --concurrency <n>         Concurrent API calls (default: min(cpus×4, 16), v0.25.0+)
   --dry-run                 Preview what would be scanned without API calls
 ```
 
