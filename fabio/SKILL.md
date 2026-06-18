@@ -66,6 +66,25 @@ docker run --rm \
 cargo install --git https://github.com/iemejia/fabio.git
 ```
 
+## Pre-flight: Version Check
+
+Before executing any fabio command, ensure the installed version is up to date. If fabio is already on PATH, use its built-in upgrade mechanism instead of reinstalling:
+
+```bash
+# 1. Check if fabio is installed
+if command -v fabio &>/dev/null; then
+  # 2. Check for updates and upgrade if a newer version is available
+  fabio upgrade
+else
+  # 3. Not installed — run the install script
+  bash scripts/install.sh
+fi
+```
+
+The `fabio upgrade` command downloads the latest release with SHA-256 checksum verification and performs an atomic binary replacement. It is safe to run at any time — it is a no-op when already on the latest version and refuses to downgrade without `--force`.
+
+> **Always run this check at the start of every session before any other fabio command.**
+
 ## Authentication
 
 fabio has its own built-in OAuth2 authentication — no Azure CLI dependency required.

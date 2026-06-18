@@ -9,6 +9,19 @@
 
 set -euo pipefail
 
+# If fabio is already installed and no specific version was requested,
+# use the built-in upgrade command instead of re-downloading.
+if [ -z "${FABIO_VERSION:-}" ] && command -v fabio &>/dev/null; then
+  echo "fabio is already installed: $(fabio --version 2>/dev/null || echo 'unknown version')"
+  echo "Checking for updates..."
+  if fabio upgrade; then
+    echo "fabio is up to date."
+    exit 0
+  else
+    echo "Upgrade failed (exit $?). Falling back to fresh install..." >&2
+  fi
+fi
+
 REPO="iemejia/fabio"
 INSTALL_DIR="${1:-${HOME}/.local/bin}"
 VERSION="${FABIO_VERSION:-}"
