@@ -65,6 +65,110 @@ fabio kql-database query --workspace $WS --id $KDB \
 ## Notebook ETL Workflow
 
 ```bash
+# ── Schema Discovery ──
+
+# List all entities (tables, views, external tables, functions)
+fabio kql-database list-entities --workspace $WS --id $KDB
+
+# Filter by entity type
+fabio kql-database list-entities --workspace $WS --id $KDB --entity-type Table
+
+# Get full database schema (all columns in all tables)
+fabio kql-database describe --workspace $WS --id $KDB
+
+# Get detailed schema for a specific entity
+fabio kql-database describe-entity --workspace $WS --id $KDB --entity-name StormEvents
+
+# Sample rows from any entity
+fabio kql-database sample --workspace $WS --id $KDB --entity-name StormEvents --count 5
+
+# ── Inline Ingestion ──
+
+# Ingest CSV data directly into a table
+fabio kql-database ingest --workspace $WS --id $KDB --table Events \
+  --data "name,value\ntest,42\nprod,100"
+
+# Preview ingestion without writing
+fabio kql-database ingest --workspace $WS --id $KDB --table Events \
+  --data "name,value\ntest,42" --dry-run
+
+# ── Query Analysis ──
+
+# Show query execution plan without running it
+fabio kql-database show-queryplan --workspace $WS --id $KDB \
+  --kql "StormEvents | summarize count() by EventType"
+
+# ── Cluster Diagnostics ──
+fabio kql-database diagnostics --workspace $WS --id $KDB
+
+# ── Portal Deeplinks ──
+
+# Generate portal URL to open a KQL query in Fabric
+fabio kql-database deeplink --workspace $WS --id $KDB \
+  --kql "StormEvents | take 100"
+# Fabric portal URL (*.kusto.fabric.microsoft.com) or ADX Web Explorer (*.kusto.windows.net)
+# URL auto-detected from KQL cluster URI
+```
+
+## Eventstream Builder
+
+```bash
+# Add sample data source for testing
+fabio eventstream add-sample-source --workspace $WS --id $ES --name test-data
+
+# Add a derived stream to filter/transform between nodes
+fabio eventstream add-derived-stream --workspace $WS --id $ES \
+  --name filtered --input-node src-stream
+
+# Validate a local definition file (no API call)
+fabio eventstream validate --file definition.json
+
+# List all available source/destination component types
+fabio eventstream list-components
+
+# Filter by category
+fabio eventstream list-components --category source
+fabio eventstream list-components --category destination
+```
+
+## Data Activator Alert (Reflex Create-Trigger)
+
+```bash
+# Create a complete alert with auto-generated entity hierarchy (5 entities)
+fabio reflex create-trigger --workspace $WS \
+  --name "Flood Alert" \
+  --eventhouse-id $EH \
+  --database WeatherDB \
+  --table StormEvents \
+  --condition "State == 'ILLINOIS' and EventType == 'Flood'" \
+  --action email \
+  --recipients "ops@company.com"
+
+# With Teams notification
+fabio reflex create-trigger --workspace $WS \
+  --name "High Temp Alert" \
+  --eventhouse-id $EH \
+  --database SensorDB \
+  --table Readings \
+  --condition "Temperature > 90" \
+  --action teams \
+  --recipients "channel@company.com" \
+  --message "Temperature threshold exceeded" \
+  --interval 30
+
+# Preview without creating (dry-run shows entity count + parameters)
+fabio reflex create-trigger --workspace $WS \
+  --name "Test Alert" \
+  --eventhouse-id $EH \
+  --database WeatherDB \
+  --table StormEvents \
+  --condition "Severity == 'High'" \
+  --action email \
+  --recipients "test@example.com" \
+  --dry-run
+```
+
+```bash
 # Create notebook bound to lakehouse
 NB=$(fabio notebook create --workspace $WS --name "ETL-Pipeline" \
   --lakehouse $LH --source etl_notebook.py -q id -o plain)
@@ -1554,66 +1658,104 @@ fabio deploy apply --source ./fabric-items --workspace $WS \
 
 ```bash
 # Extract a graph of all items and relationships from a workspace
-fabio context extract --workspace $WS
+fabio context tenant --workspace $WS
 
 # Scan multiple workspaces at once
-fabio context extract --workspace $WS1 --workspace $WS2 --workspace $WS3
+fabio context tenant --workspace $WS1 --workspace $WS2 --workspace $WS3
 
 # Deep mode: fetch definitions to discover embedded references (~4m for 154 items)
-fabio context extract --workspace $WS --deep
+fabio context tenant --workspace $WS --deep
 
 # Include connection objects as graph edges
-fabio context extract --workspace $WS --include-connections
+fabio context tenant --workspace $WS --include-connections
 
 # Full extraction with all discovery layers
-fabio context extract --workspace $WS --deep --include-connections
+fabio context tenant --workspace $WS --deep --include-connections
 
 # Filter to specific item types
-fabio context extract --workspace $WS --item-types "Notebook,Lakehouse,SemanticModel"
+fabio context tenant --workspace $WS --item-types "Notebook,Lakehouse,SemanticModel"
 
 # Fast inventory-only mode (skip property fetching, just list items ~3s for 20 workspaces)
-fabio context extract --workspace $WS --no-properties
+fabio context tenant --workspace $WS --no-properties
 
 # Increase concurrency for large workspaces
-fabio context extract --workspace $WS --deep --concurrency 16
+fabio context tenant --workspace $WS --deep --concurrency 16
 
 # Use workspace name instead of ID
-fabio context extract --workspace "sales-analytics"
+fabio context tenant --workspace "sales-analytics"
 
 # Preview what would be scanned without making API calls
-fabio context extract --workspace $WS --deep --dry-run
+fabio context tenant --workspace $WS --deep --dry-run
 
 # ── Incremental context building ──
 
 # Save graph to a file
-fabio context extract --workspace $WS --deep --output-file context.json
+fabio context tenant --workspace $WS --deep --output-file context.json
 
 # Later: add another workspace to the existing graph (idempotent merge)
-fabio context extract --workspace $NEW_WS --deep \
+fabio context tenant --workspace $NEW_WS --deep \
   --merge context.json --output-file context.json
 
 # Build up context workspace by workspace
-fabio context extract --workspace $WS1 --output-file graph.json
-fabio context extract --workspace $WS2 --merge graph.json --output-file graph.json
-fabio context extract --workspace $WS3 --merge graph.json --output-file graph.json
+fabio context tenant --workspace $WS1 --output-file graph.json
+fabio context tenant --workspace $WS2 --merge graph.json --output-file graph.json
+fabio context tenant --workspace $WS3 --merge graph.json --output-file graph.json
 
 # Recommended incremental pattern: fast inventory first, then deepen
-fabio context extract --workspace $WS1 --workspace $WS2 --no-properties --output-file graph.json
-fabio context extract --workspace $WS1 --deep --merge graph.json --output-file graph.json
+fabio context tenant --workspace $WS1 --workspace $WS2 --no-properties --output-file graph.json
+fabio context tenant --workspace $WS1 --deep --merge graph.json --output-file graph.json
 
 # Pipe to jq for graph analysis
-fabio context extract --workspace $WS --deep | jq '.data.summary'
-fabio context extract --workspace $WS --deep | jq '.data.edges[] | select(.relationship == "default_lakehouse")'
+fabio context tenant --workspace $WS --deep | jq '.data.summary'
+fabio context tenant --workspace $WS --deep | jq '.data.edges[] | select(.relationship == "default_lakehouse")'
 
 # ── JSON-LD output (RDF-compatible) ──
 
 # Export as JSON-LD for graph databases and SPARQL endpoints
-fabio context extract --workspace $WS --deep --format jsonld
+fabio context tenant --workspace $WS --deep --format jsonld
 
 # Save JSON-LD to file for import into Neptune/Stardog/Jena
-fabio context extract --workspace $WS --deep --format jsonld --output-file context.jsonld
+fabio context tenant --workspace $WS --deep --format jsonld --output-file context.jsonld
 
 # JSON-LD output: @context vocabulary + @graph with typed resources
 # Each item becomes: {"@id": "urn:fabric:item:<uuid>", "@type": "fabric:Notebook", ...}
 # Edges are inlined as typed properties: {"fabric:defaultLakehouse": {"@id": "urn:fabric:item:<uuid>"}}
+```
+
+## Context Knowledge (Offline — No API Calls)
+
+```bash
+# ── Agent command schema ──
+fabio context agent
+
+# ── Item definition schemas ──
+fabio context schema Notebook
+fabio context schema KQLDatabase
+fabio context schema Lakehouse
+# Lists all 22 available types:
+fabio context list
+
+# ── Workflow recipes ──
+fabio context workflow rti-pipeline
+fabio context workflow direct-lake-report
+fabio context workflow cicd-deploy
+fabio context workflow lakehouse-etl
+fabio context workflow data-agent-setup
+
+# ── Best practices for agents ──
+fabio context best-practices throttling    # fabio handles retries automatically
+fabio context best-practices lro           # --wait for jobs, polling patterns
+fabio context best-practices pagination    # --all, --limit, --continuation-token
+fabio context best-practices admin-apis   # when to use fabio admin vs workspace commands
+
+# ── Output shape examples ──
+fabio context examples kql-database list-entities
+fabio context examples kql-database describe
+fabio context examples kql-database sample
+fabio context examples kql-database diagnostics
+fabio context examples deploy apply
+fabio context examples lakehouse sync
+fabio context examples notebook run
+fabio context examples data-agent query
+fabio context examples context tenant
 ```

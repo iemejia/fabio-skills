@@ -1,6 +1,6 @@
 # fabio Command Reference
 
-Complete command reference organized by functional area (75 groups, 820+ subcommands).
+Complete command reference organized by functional area (74 groups, 843+ subcommands).
 
 ## Global Flags
 
@@ -183,7 +183,16 @@ fabio catalog search --content '{"searchString":"<text>","top":N}'
 
 ### context
 ```
-fabio context extract --workspace <ws>    Extract graph of items and relationships from workspace(s)
+# ── Offline knowledge (no API calls) ──
+fabio context agent                       Machine-readable command schema (auth_scope, returns, flags for all commands)
+fabio context schema <TYPE>               Item type definition format (e.g., Notebook, Lakehouse, KQLDatabase)
+fabio context workflow <NAME>             Multi-step workflow recipe (rti-pipeline, direct-lake-report, cicd-deploy, lakehouse-etl, data-agent-setup)
+fabio context best-practices <TOPIC>      Operational guidance: throttling, lro, pagination, admin-apis
+fabio context examples <GROUP> <CMD>      Output shape example for a specific command (20 examples registered)
+fabio context list                        List all available schema/workflow/best-practices/examples topics
+
+# ── Live workspace graph (requires API calls) ──
+fabio context tenant --workspace <ws>     Extract graph of items and relationships from workspace(s)
   --workspace <id|name>     Workspace to scan (repeatable — pass multiple times for multi-workspace)
   --deep                    Fetch item definitions to discover embedded UUID references (slower)
   --include-connections     Include connection objects as graph edges
@@ -622,6 +631,27 @@ fabio kql-database create-shortcut --workspace <ws> --id <id> ...
 fabio kql-database get-shortcut --workspace <ws> --id <id> --name <name>
 fabio kql-database delete-shortcut --workspace <ws> --id <id> --name <name>
 fabio kql-database bulk-create-shortcuts --workspace <ws> --id <id> --file <path>
+
+# ── Schema discovery (RTI intelligence) ──
+fabio kql-database list-entities --workspace <ws> --id <id>   List tables, views, external tables, functions
+fabio kql-database describe --workspace <ws> --id <id>        Full database schema (all columns in all tables)
+fabio kql-database describe-entity --workspace <ws> --id <id> --entity-name <name>   Schema for one entity
+fabio kql-database sample --workspace <ws> --id <id> --entity-name <name> [--count <n>]  Sample rows from entity
+
+# ── Inline ingestion ──
+fabio kql-database ingest --workspace <ws> --id <id> --table <name> --data <csv-text>   Inline CSV ingestion
+  --table <name>    Target table name (must exist)
+  --data <csv>      Inline CSV data (header row + data rows, newlines as \n)
+  --dry-run         Validate without ingesting
+
+# ── Query analysis ──
+fabio kql-database show-queryplan --workspace <ws> --id <id> --kql <"query">   Execution plan without running
+fabio kql-database diagnostics --workspace <ws> --id <id>     Cluster health, capacity, ingestion failures
+
+# ── Portal deeplinks ──
+fabio kql-database deeplink --workspace <ws> --id <id> --kql <"query">    Fabric or ADX Web Explorer URL
+  Fabric URL: https://app.fabric.microsoft.com/groups/{ws}/kqlDatabases/{id}?query={encoded}
+  ADX URL:    https://dataexplorer.azure.com/clusters/{uri}/databases/{db}?query={encoded}
 ```
 
 ### eventstream
@@ -646,6 +676,18 @@ fabio eventstream pause-destination --workspace <ws> --id <id> --dest-id <did>
 fabio eventstream resume-destination --workspace <ws> --id <id> --dest-id <did>
 fabio eventstream add-source --workspace <ws> --id <id> --name <name> --source-type <CustomEndpoint|...>
 fabio eventstream add-destination --workspace <ws> --id <id> --name <name> --destination-type <Eventhouse|Lakehouse|...> --input-node <node-id> --properties <json>
+
+# ── Builder helpers (high-level) ──
+fabio eventstream add-sample-source --workspace <ws> --id <id> --name <name>   Add SampleData source
+fabio eventstream add-derived-stream --workspace <ws> --id <id> --name <name> --input-node <node>  Add filtered/transformed stream
+
+# ── Definition validation ──
+fabio eventstream validate --file <path>   Client-side definition validation (no API call)
+  --file <path>    Local eventstream definition JSON file
+  Checks: node reference integrity, duplicates, required fields
+
+# ── Component catalog ──
+fabio eventstream list-components [--category <source|destination>]   List available source/destination types
 ```
 
 ### kql-queryset
@@ -670,6 +712,18 @@ fabio reflex delete --workspace <ws> --id <id>
 fabio reflex get-definition --workspace <ws> --id <id>
 fabio reflex update-definition --workspace <ws> --id <id> --file <path>
 fabio reflex configure-kql-source --workspace <ws> --id <id> ...
+
+# ── High-level trigger creation (auto-generates full entity hierarchy) ──
+fabio reflex create-trigger --workspace <ws> --name <name>
+  --eventhouse-id <eh-id>   Eventhouse containing the data source
+  --database <db-name>      KQL database name
+  --table <table-name>      Source table to monitor
+  --condition <kql-expr>    KQL condition expression (e.g., "State == 'ILLINOIS' and EventType == 'Flood'")
+  --action <email|teams>    Notification action type
+  --recipients <emails>     Comma-separated recipient addresses
+  [--message <text>]        Optional notification message body
+  [--interval <secs>]       Check interval in seconds (default: 60)
+  [--dry-run]               Show planned entity count and parameters without creating
 ```
 
 ### kql-dashboard
@@ -1038,12 +1092,26 @@ fabio jobs get --id <job-id>
 fabio jobs prune
 ```
 
-### agent-context
+### context (agent introspection)
+
+The `fabio context` command family provides three-layer knowledge for AI agents:
+
 ```
-fabio agent-context    # Machine-readable command schema (v2: auth_scope + returns for all commands)
+# Layer 1: Tool layer — what commands exist
+fabio context agent    Machine-readable command schema (auth_scope, returns, flags, mutability)
+
+# Layer 2: Domain layer — how to use Fabric
+fabio context schema <TYPE>             Item definition format (22 types: Notebook, Lakehouse, etc.)
+fabio context workflow <NAME>           Workflow recipes: rti-pipeline, direct-lake-report, cicd-deploy, lakehouse-etl, data-agent-setup
+fabio context best-practices <TOPIC>    Topics: throttling, lro, pagination, admin-apis
+fabio context examples <GROUP> <CMD>    Output shape example (20 registered)
+fabio context list                      Discover all available topics
+
+# Layer 3: Environment layer — what's in YOUR workspace
+fabio context tenant --workspace $WS [--deep] [--include-connections] [--no-properties]
 ```
 
-Schema v2 includes `auth_scope` (fabric/arm/local) and `returns` (list/object/void) for all subcommands.
+All knowledge layers except `tenant` are offline (no API calls, embedded in binary).
 
 ### completions
 ```

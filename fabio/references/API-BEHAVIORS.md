@@ -1443,18 +1443,40 @@ fabio deploy apply --source ./fabric-items --workspace $WS --git-diff abc1234
 
 Uses `git diff --name-status <REF>` to determine changed item directories. Items with no changed files are skipped at the plan stage (treated as `Skip`). Deleted items still appear as `Delete` if `--delete-orphans` is set.
 
-## Context Extract
+## Context Tenant (renamed from Context Extract)
 
+- **`fabio context tenant` is the renamed `context extract`**: All flags and behavior are unchanged — only the subcommand name changed (`extract` → `tenant`) to better reflect that this extracts workspace graph data from the live tenant.
 - **Three-layer relationship discovery**: Layer 1 (properties) finds typed edges from item GET responses. Layer 2 (`--deep`) decodes base64 definition payloads and regex-scans for UUID references. Layer 3 (`--include-connections`) fetches `/items/{id}/connections`. Each layer is additive — deeper layers find significantly more edges. Properties-only found 2 edges in a 154-item tenant; deep mode found 88.
 - **Items without definition support skipped in deep mode**: SQLEndpoint, Dashboard, Datamart, PaginatedReport, MLModel, MLExperiment never support `getDefinition`. Skipping them saves ~20% LRO calls.
 - **GUID scanning finds all cross-references generically**: Builds a registry of known item/workspace IDs, then regex-matches `[0-9a-fA-F]{8}-...-[0-9a-fA-F]{12}` in decoded definitions. Excludes well-known placeholder GUIDs (all-zeros, all-`f`s, near-zero).
-- **`bulkExportDefinitions` API format**: `POST /workspaces/{ws}/items/bulkExportDefinitions?beta=True` with `{"mode":"All"}`. Requires `?beta=True` query param. Only exports items the caller has **read+write** permissions for — silently excludes items with Viewer/Contributor role or protected labels. Benchmarked: bulk exported 14/154 items (55 edges) vs per-item 35/154 (88 edges). Per-item `getDefinition` is preferred for context extract because completeness matters more than speed.
+- **`bulkExportDefinitions` API format**: `POST /workspaces/{ws}/items/bulkExportDefinitions?beta=True` with `{"mode":"All"}`. Requires `?beta=True` query param. Only exports items the caller has **read+write** permissions for — silently excludes items with Viewer/Contributor role or protected labels. Benchmarked: bulk exported 14/154 items (55 edges) vs per-item 35/154 (88 edges). Per-item `getDefinition` is preferred for context tenant because completeness matters more than speed.
 - **`--no-properties` mode**: Skips type-specific GET calls, only calls `GET /workspaces/{ws}/items` (listing). Nodes lack `properties` field. Ultra-fast (~3s for 20 workspaces). Useful for initial orientation.
 - **`--output-file` writes the JSON envelope**: Writes `{"data": {...}}` (pretty-printed) to disk. Reports `{"status":"written","file":"...","nodes":N,"edges":N,"workspaces":N}` to stdout. Parent directories must exist.
 - **`--merge` is idempotent**: Loads an existing graph, unions new nodes/edges. Merge semantics: nodes deduped by ID (new overwrites old), edges unioned (exact-match dedup), workspaces deduped by ID. Re-extracting the same workspace updates it in place.
 - **`--format jsonld` produces valid RDF**: JSON-LD with `@context` vocabulary (`https://api.fabric.microsoft.com/ontology/`) and `@graph` array. Items become `urn:fabric:item:{uuid}` resources typed as `fabric:{ItemType}`. Edges inlined as typed properties (e.g., `fabric:defaultLakehouse`). Multiple edges of same type become JSON arrays. Compatible with Neptune, Stardog, Jena, and any SPARQL endpoint.
 - **Performance benchmarks (20 workspaces, 154 items)**: Shallow: 7.7s, 2 edges. Deep + connections: 4m18s, 88 edges. No-properties: ~3s, 0 edges. LRO polling is the deep mode bottleneck (2-6s per `getDefinition` call, 8 concurrent).
 - **Concurrency auto-scales to CPU count** (v0.25.0+): Default concurrency is `min(cpus * 4, 16)` instead of a hardcoded 8. I/O-bound workload (HTTP round-trips) benefits from higher concurrency. On a 4-core machine, default is now 16, approximately halving deep-mode time. Override with `--concurrency <N>`.
+
+## KQL Database Intelligence (v0.28.0)
+
+- **Schema-as-JSON format uses DB GUID key**: `.show database schema as json` returns `{"Databases":{"<db-guid>":{...}}}` — the key is the database's GUID, not the display name. fabio resolves this automatically.
+- **`list-entities` calls `.show database entities`**: Returns tables, views, materialized views, external tables, and functions. Filter with `--entity-type Table|View|MaterializedView|ExternalTable|Function`.
+- **`describe` returns flat row-per-column format**: Each row has `TableName`, `ColumnName`, `DataType`. Output includes all entities in the database.
+- **`describe-entity` calls `.show entity <name> schema as json`**: Returns full column schema for a single named entity.
+- **`sample` appends `| take <N>` to the entity query**: Default 5 rows. Works on any entity type (tables, views, functions with tabular output).
+- **`ingest` uses management endpoint**: Inline CSV ingestion calls `POST /v1/rest/mgmt` with `.ingest inline into table <name> <| <data>` syntax. Limit ~4MB of inline data. Not suitable for large datasets.
+- **`show-queryplan` uses management endpoint**: Calls `.show queryplan <kql>` via `/v1/rest/mgmt`. Returns operator tree — useful for diagnosing slow queries without executing them.
+- **`diagnostics` may fail per-section**: Aggregates `.show capacity`, `.show cluster`, and `.show diagnostics` as separate calls. If any section fails (e.g., capacity API not available on Basic tier), the rest still succeed. Check `status` per section.
+- **`deeplink` auto-detects portal vs ADX**: If KQL URI contains `.kusto.fabric.microsoft.com`, generates Fabric portal URL (`https://fabric.microsoft.com/...`). If it contains `.kusto.windows.net`, generates ADX Web Explorer URL (`https://dataexplorer.azure.com/...`). The KQL is URL-encoded and embedded in the link.
+
+## Reflex Create-Trigger (v0.28.0)
+
+- **Auto-generates 5 entities**: `create-trigger` builds the full ReflexEntities.json hierarchy: container → event → object → attribute → rule. This eliminates manual JSON authoring.
+- **Graceful failure if definition push fails**: After creating the Reflex item, if `update-definition` fails (known limitation when using KQL source type), the command still succeeds and reports the created item ID with a hint to use `fabio reflex update-definition` manually.
+- **`--action email|teams`**: Only two action types supported. `email` sends to `--recipients` addresses. `teams` posts to the Teams channel webhook in `--recipients`.
+- **`--interval` defaults to 60 seconds**: Sets the polling interval for condition evaluation.
+
+
 
 ## Azure Databricks Storage API Behaviors
 
