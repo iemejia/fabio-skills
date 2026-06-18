@@ -62,7 +62,7 @@ fabio kql-database query --workspace $WS --id $KDB \
   --kql "SensorEvents | where Timestamp > ago(1h) | summarize avg(Temperature) by DeviceId"
 ```
 
-## Notebook ETL Workflow
+## KQL Database Intelligence
 
 ```bash
 # ── Schema Discovery ──
@@ -167,6 +167,8 @@ fabio reflex create-trigger --workspace $WS \
   --recipients "test@example.com" \
   --dry-run
 ```
+
+## Notebook ETL Workflow
 
 ```bash
 # Create notebook bound to lakehouse
