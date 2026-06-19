@@ -33,12 +33,12 @@ jobs:
           echo "Syncing from fabio release: $TAG"
 
       - name: Checkout fabio-skills
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Checkout fabio at release tag
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: iemejia/fabio
           path: fabio-upstream
