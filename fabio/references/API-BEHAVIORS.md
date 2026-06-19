@@ -418,7 +418,7 @@ The Fabric Ontology API uses ordered JSON deserialization for data bindings. `so
 |--------|---------|----------|
 | `graph` | Instance data, native arrays | Agent memory, JMESPath, merge |
 | `jsonld` | Instance data, RDF JSON-LD | Triple stores, SPARQL |
-| `owl` | Schema only, OWL JSON-LD | `fabio ontology import`, Ontology Playground |
+| `owl` | Schema only, OWL JSON-LD | `fabio ontology import` |
 | `rdf` | Schema only, OWL RDF/XML | `fabio ontology import`, Ontology Playground, Protégé |
 | `full` | Schema + instances, RDF/XML | Universal — triple stores + Fabric Ontology import |
 

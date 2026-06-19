@@ -210,7 +210,7 @@ fabio context workflow <NAME>         # Multi-step workflow recipe
 fabio context best-practices <TOPIC> # Operational guidance (throttling, lro, pagination, admin-apis)
 fabio context examples <GROUP> <CMD> # Output shape example for a command
 fabio context list                    # List all available topics
-fabio context tenant --workspace $WS  # Extract live workspace graph (items + relationships)
+fabio context tenant --workspace $WS --format graph  # graph|jsonld|owl|rdf|full
 ```
 
 ## Workflow: From Sign-In to Queryable Data
