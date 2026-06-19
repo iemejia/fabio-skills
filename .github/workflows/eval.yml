@@ -17,7 +17,7 @@ jobs:
     # Only run on non-fork PRs (needs token with models access)
     if: github.event.pull_request.head.repo.full_name == github.repository
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Cache promptfoo results
         uses: actions/cache@v5
