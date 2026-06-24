@@ -983,32 +983,46 @@ High-level commands that:
 
 ## Data Agent Behaviors (Expanded)
 
-### Data Source Configuration
-Configured via `datasource.json` parts in the definition. Single-part updates are **silently dropped** — must include ALL parts together:
-- `data_agent.json` + `stage_config.json` + `datasource.json`
+### Public Staging Management API (Jun 2026)
+Data agent configuration uses dedicated staging endpoints — NOT definition-based read-modify-write. All config changes go to staging (draft); `publish` promotes to production.
 
-### Path Convention
-```
-Files/Config/{stage}/{type}-{DisplayName}/datasource.json
-```
-Where:
-- `stage`: `draft` or `published`
-- `type`: full type value (e.g., `lakehouse-tables`, `data-warehouse`, `kusto`, `graph`)
+Key endpoints:
+- `GET/PATCH .../staging/settings` — manages `aiInstructions`
+- `GET/POST/PATCH/DELETE .../staging/datasources` — full CRUD; POST is LRO (schema discovery 1-5 min)
+- `GET/PATCH/DELETE .../staging/datasources/{id}/elements` — schema tree management
+- `GET/POST/DELETE .../staging/datasources/{id}/fewshots` + `POST .../fewshots/deleteAll`
+- `POST .../staging/publish` — promote draft to production
+- `POST .../staging/reset` — discard draft, revert to published
 
-### Stage Mapping for Query
-`--stage sandbox|production` maps to internal values: `draft`/`sandbox` → `sandbox`, `publishing`/`production` → `production`. Default is the published endpoint.
+### Read Commands Accept `--stage`
+The `--stage staging|published` flag on read commands allows inspecting either draft or production state:
+- `get-config`, `list-datasources`, `show-datasource`, `list-elements`, `list-fewshots`, `show-fewshot`
 
-### Stdin Fallback for `--prompt`
-When `--prompt` is omitted, `data-agent query` reads the question from stdin. This enables shell pipelines without repeating the flag:
+### Datasource Creation is LRO
+`add-datasource` triggers async schema discovery (1-5 minutes on cold lakehouses). Use `--lro-timeout 300` for reliable completion.
 
 ```bash
-# Equivalent — stdin is used when --prompt is absent
+fabio data-agent add-datasource --workspace $WS --id $DA \
+  --artifact $LH --lro-timeout 300
+# Wait for indexing before querying elements
+fabio data-agent list-elements --workspace $WS --id $DA --datasource $LH
+```
+
+### Stdin Fallback for `--prompt`
+When `--prompt` is omitted, `data-agent query` reads the question from stdin:
+
+```bash
 echo "How many orders last month?" | \
   fabio data-agent query --workspace $WS --id $DA
 ```
 
-### Element Types for Descriptions
-Descriptions can be set on: `lakehouse_tables.table`, `lakehouse_tables.column`, `warehouse_tables.table`, `warehouse_tables.column`, `mirrored_database.table`, `mirrored_database.column`, `sql_database.table`, `sql_database.column` (plus their `.view` variants).
+### M365 Copilot Agent Store Publishing
+Publishing to the M365 Copilot Agent Store is **NOT available via public REST API**. It is only accessible through the Fabric portal or the `fabric-data-agent-sdk` Python package. The `--to-m365` flag on `publish` is deprecated/unsupported.
+
+### Operability Limits
+- Max **5 datasources** per agent
+- Max **100 few-shot examples** per datasource
+- Agent responses capped at **25 rows** and **25 columns**
 
 ## Environment API
 
@@ -1258,6 +1272,12 @@ When `private_link_workspace` is configured via profile, URLs are transformed fo
 ## Dataflow Execute Query
 
 `POST /workspaces/{ws}/dataflows/{id}/executeQuery` returns binary Apache Arrow IPC stream (NOT JSON). Save with `--file` flag. Requires Contributor role.
+
+### LRO Support (v0.30.0+)
+For long-running queries, the endpoint returns **202 Accepted** and polls until completion (up to 90s server-side). The `--wait` flag controls polling behavior.
+
+### Arrow Version Selection
+Use `--arrow-version 1|2` to select the Apache Arrow IPC format version (default: 1). Sets `Accept: application/vnd.apache.arrow.stream;pq-arrow-version=<N>` header. Arrow v2 is required for newer Dataflow versions.
 
 ## App Backend (preview)
 

@@ -1,6 +1,6 @@
 # fabio Command Reference
 
-Complete command reference organized by functional area (74 groups, 845+ subcommands).
+Complete command reference organized by functional area (74 groups, 851+ subcommands).
 
 ## Global Flags
 
@@ -297,7 +297,7 @@ fabio dataflow get-definition --workspace <ws> --id <id>
 fabio dataflow update-definition --workspace <ws> --id <id> --file <path>
 fabio dataflow discover-parameters --workspace <ws> --id <id>
 fabio dataflow run --workspace <ws> --id <id> [--wait] [--timeout <secs>]
-fabio dataflow execute-query --workspace <ws> --id <id> --query-name <name> [--file <output>]
+fabio dataflow execute-query --workspace <ws> --id <id> --query-name <name> [--file <output>] [--arrow-version 1|2]
 ```
 
 ### environment
@@ -333,40 +333,53 @@ fabio data-agent delete --workspace <ws> --id <id>
 fabio data-agent get-definition --workspace <ws> --id <id>
 fabio data-agent update-definition --workspace <ws> --id <id> --file <path>
 
-# Configuration management
-fabio data-agent get-config --workspace <ws> --id <id>
+# Configuration management (staging management API)
+fabio data-agent get-config --workspace <ws> --id <id> [--stage staging|published]
 fabio data-agent update-config --workspace <ws> --id <id>
   [--instructions <text>] [--instructions-file <path>]
   [--enable-preview-runtime] [--disable-preview-runtime]
 
 # Datasource management
-fabio data-agent list-datasources --workspace <ws> --id <id>
-fabio data-agent show-datasource --workspace <ws> --id <id> --datasource <name-or-id>
+fabio data-agent list-datasources --workspace <ws> --id <id> [--stage staging|published]
+fabio data-agent show-datasource --workspace <ws> --id <id> --datasource <name-or-id> [--stage staging|published]
 fabio data-agent add-datasource --workspace <ws> --id <id> --artifact <name-or-id>
   [--artifact-type <Lakehouse|Warehouse|KQLDatabase|SemanticModel|...>]
-  [--artifact-workspace <ws-id>] [--instructions <text>]
+  [--artifact-workspace <ws-id>] [--instructions <text>]   (LRO — triggers async schema discovery)
+fabio data-agent update-datasource --workspace <ws> --id <id> --datasource <name-or-id>
+  [--instructions <text>] [--description <text>]
 fabio data-agent remove-datasource --workspace <ws> --id <id> --datasource <name-or-id>
 fabio data-agent select-tables --workspace <ws> --id <id> --datasource <name-or-id>
   (--tables <t1,t2> | --all-tables) [--unselect]
 
 # Element descriptions
-fabio data-agent list-elements --workspace <ws> --id <id> --datasource <name-or-id>
+fabio data-agent list-elements --workspace <ws> --id <id> --datasource <name-or-id> [--stage staging|published]
 fabio data-agent describe-element --workspace <ws> --id <id> --datasource <name-or-id>
   --path <dbo.table.column> [--description <text>]
+fabio data-agent delete-element --workspace <ws> --id <id> --datasource <name-or-id>
+  --element-id <uuid>   (remove stale schema elements)
 
 # Few-shot examples
-fabio data-agent list-fewshots --workspace <ws> --id <id> --datasource <name-or-id>
+fabio data-agent list-fewshots --workspace <ws> --id <id> --datasource <name-or-id> [--stage staging|published]
+fabio data-agent show-fewshot --workspace <ws> --id <id> --datasource <name-or-id>
+  --fewshot-id <uuid> [--stage staging|published]
 fabio data-agent add-fewshot --workspace <ws> --id <id> --datasource <name-or-id>
   --question <text> --answer <sql-or-kql>   (--sql is alias for --answer)
+fabio data-agent update-fewshot --workspace <ws> --id <id> --datasource <name-or-id>
+  --fewshot-id <uuid> [--question <text>] [--answer <sql-or-kql>]
 fabio data-agent remove-fewshot --workspace <ws> --id <id> --datasource <name-or-id>
   --fewshot-id <uuid>
+fabio data-agent clear-fewshots --workspace <ws> --id <id> --datasource <name-or-id>
+  (bulk delete all fewshots for a datasource)
 fabio data-agent upload-fewshots --workspace <ws> --id <id> --datasource <name-or-id>
   --file <path>   (JSON: [{"question":"...","query":"..."}] or CSV with question/query columns)
+
+# Staging lifecycle
+fabio data-agent reset --workspace <ws> --id <id>   (discard staging draft, revert to published)
 
 # Query and publish
 fabio data-agent query --workspace <ws> --id <id> [--prompt <text>|stdin]
   [--stage sandbox|production] [--timeout <secs>] [--show-steps]
-fabio data-agent publish --workspace <ws> --id <id> [--description <text>] [--to-m365]
+fabio data-agent publish --workspace <ws> --id <id> [--description <text>]
 ```
 
 ### ontology
@@ -475,7 +488,7 @@ fabio apache-airflow-job create --workspace <ws> --name <name>
 fabio apache-airflow-job update --workspace <ws> --id <id> --name <new-name>
 fabio apache-airflow-job delete --workspace <ws> --id <id>
 fabio apache-airflow-job get-definition --workspace <ws> --id <id>
-fabio apache-airflow-job update-definition --workspace <ws> --id <id> --file <path>
+fabio apache-airflow-job update-definition --workspace <ws> --id <id> --file <path> [--update-metadata]
 fabio apache-airflow-job start-environment --workspace <ws> --id <id>
 fabio apache-airflow-job stop-environment --workspace <ws> --id <id>
 fabio apache-airflow-job get-environment --workspace <ws> --id <id>
@@ -1078,8 +1091,8 @@ fabio context agent    Machine-readable command schema (auth_scope, returns, fla
 # Layer 2: Domain layer — how to use Fabric
 fabio context schema <TYPE>             Item definition format (22 types: Notebook, Lakehouse, etc.)
 fabio context workflow <NAME>           Workflow recipes: rti-pipeline, direct-lake-report, cicd-deploy, lakehouse-etl, data-agent-setup
-fabio context best-practices <TOPIC>    Topics: throttling, lro, pagination, admin-apis
-fabio context examples <GROUP> <CMD>    Output shape example (20 registered)
+fabio context best-practices <TOPIC>    Topics: throttling, lro, pagination, admin-apis, shortcuts
+fabio context examples <GROUP> [CMD]    Output shape example (34 registered; CMD optional — lists available examples when omitted)
 fabio context list                      Discover all available topics
 
 # Layer 3: Environment layer — what's in YOUR workspace
@@ -1170,7 +1183,12 @@ fabio rti nl-to-kql --workspace <ws> --item-id <id> --cluster-url <kusto-uri> --
 ### paginated-report
 ```
 fabio paginated-report list --workspace <ws>
+fabio paginated-report show --workspace <ws> --id <id>
+fabio paginated-report create --workspace <ws> --name <name> --file <path.rdl>
 fabio paginated-report update --workspace <ws> --id <id> --name <new-name>
+fabio paginated-report delete --workspace <ws> --id <id> [--hard-delete]
+fabio paginated-report get-definition --workspace <ws> --id <id>
+fabio paginated-report update-definition --workspace <ws> --id <id> --file <path.rdl> [--update-metadata]
 ```
 
 ### dashboard

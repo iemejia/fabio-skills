@@ -1,11 +1,11 @@
 ---
 name: fabio
-description: "Manage Microsoft Fabric artifacts and data using the fabio CLI - an agent-native command-line tool with 845+ subcommands across 74 groups, structured JSON output, composable piping, and machine-readable errors. Use when working with Fabric workspaces, lakehouses, warehouses, notebooks, eventhouses, semantic models, reports, data pipelines, KQL databases, eventstreams, deploy CI/CD, REST passthrough, Power BI API, capacity lifecycle, app-backend (Power Apps), data-build-tool-job (dbt), org-app (Organizational App), azure-databricks-storage (Azure Databricks integration), or any Fabric REST API resource. Covers CRUD operations, file upload/download, SQL/DAX/KQL queries, Git integration, deployment pipelines, CI/CD deploy (plan/apply/export/validate/config-file/git-diff), natural language to KQL, KQL schema discovery and diagnostics, and administration."
+description: "Manage Microsoft Fabric artifacts and data using the fabio CLI - an agent-native command-line tool with 851+ subcommands across 74 groups, structured JSON output, composable piping, and machine-readable errors. Use when working with Fabric workspaces, lakehouses, warehouses, notebooks, eventhouses, semantic models, reports, data pipelines, KQL databases, eventstreams, deploy CI/CD, REST passthrough, Power BI API, capacity lifecycle, app-backend (Power Apps), data-build-tool-job (dbt), org-app (Organizational App), azure-databricks-storage (Azure Databricks integration), or any Fabric REST API resource. Covers CRUD operations, file upload/download, SQL/DAX/KQL queries, Git integration, deployment pipelines, CI/CD deploy (plan/apply/export/validate/config-file/git-diff), natural language to KQL, KQL schema discovery and diagnostics, and administration."
 license: MIT
 compatibility: "Requires fabio binary (Linux/macOS/Windows x64/arm64). Authentication via `fabio auth login` (uses same Microsoft Identity platform as Azure CLI). Strongly recommended companions: az (Azure CLI) for supplementary Azure operations, gh (GitHub CLI) for release downloads. Network access to api.fabric.microsoft.com, api.powerbi.com, and onelake.dfs.fabric.microsoft.com required."
 metadata:
   author: iemejia
-  version: "0.29.0"
+  version: "0.30.0"
   repository: https://github.com/iemejia/fabio
 ---
 
@@ -13,7 +13,7 @@ metadata:
 
 ## Overview
 
-`fabio` is a CLI designed for AI agents first, humans second. It manages the entire Microsoft Fabric platform (845+ subcommands across 74 groups) from the command line with structured JSON output, composable stdin/stdout piping, machine-readable error codes, and non-interactive operation.
+`fabio` is a CLI designed for AI agents first, humans second. It manages the entire Microsoft Fabric platform (851+ subcommands across 74 groups) from the command line with structured JSON output, composable stdin/stdout piping, machine-readable error codes, and non-interactive operation.
 
 ## Installation
 
@@ -57,10 +57,10 @@ docker run --rm \
   -e AZURE_CLIENT_ID=$AZURE_CLIENT_ID \
   -e AZURE_CLIENT_SECRET=$AZURE_CLIENT_SECRET \
   -e AZURE_TENANT_ID=$AZURE_TENANT_ID \
-  ghcr.io/iemejia/fabio:0.29.0 fabio workspace list
+  ghcr.io/iemejia/fabio:0.30.0 fabio workspace list
 ```
 
-### Build from Source (requires Rust 1.85+)
+### Build from Source (requires Rust 1.96+)
 
 ```bash
 cargo install --git https://github.com/iemejia/fabio.git
@@ -200,6 +200,8 @@ LRO pattern: 2s polling interval, 120s max wait by default. Status transitions: 
 
 ### Agent Introspection
 
+Every `fabio <group> --help` now includes a `CONTEXT` section pointing to relevant schemas, workflows, and examples. This teaches agents to consult the context system before attempting commands.
+
 ```bash
 # Get machine-readable command schema (all commands with flags, types, mutability)
 fabio context agent
@@ -207,8 +209,8 @@ fabio context agent
 # Get item type definition schemas, workflow recipes, best-practices, output examples
 fabio context schema <TYPE>           # Definition format for an item type (e.g., Notebook, Lakehouse)
 fabio context workflow <NAME>         # Multi-step workflow recipe
-fabio context best-practices <TOPIC> # Operational guidance (throttling, lro, pagination, admin-apis)
-fabio context examples <GROUP> <CMD> # Output shape example for a command
+fabio context best-practices <TOPIC> # Operational guidance (throttling, lro, pagination, admin-apis, shortcuts)
+fabio context examples <GROUP> [CMD] # Output shape example (CMD optional — list available examples for group)
 fabio context list                    # List all available topics
 fabio context tenant --workspace $WS --format graph  # graph|jsonld|owl|rdf|full
 ```
@@ -257,7 +259,7 @@ These are essential for correct operation. See [references/API-BEHAVIORS.md](ref
 
 ## Command Groups
 
-fabio has 74 command groups with 845+ subcommands covering the full Fabric API surface. See [references/COMMANDS.md](references/COMMANDS.md) for the complete reference.
+fabio has 74 command groups with 851+ subcommands covering the full Fabric API surface. See [references/COMMANDS.md](references/COMMANDS.md) for the complete reference.
 
 **Core**: auth, workspace, item, lakehouse, capacity, catalog, context
 **Data & Compute**: notebook, warehouse, sql-database, sql-endpoint, data-pipeline (including schedule management: create/list/get/update/delete-schedule; and instance history: list-instances, get-instance), copy-job, dataflow, environment, data-agent, ontology (including import [OWL RDF/XML + JSON-LD → Fabric, Ontology Playground compatible] and export [Fabric → OWL RDF/XML or JSON-LD, full round-trip])

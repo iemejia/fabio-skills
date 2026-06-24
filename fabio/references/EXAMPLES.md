@@ -1123,14 +1123,47 @@ fabio data-agent remove-fewshot --workspace $WS --id $DA \
   --datasource $LH --fewshot-id $FEWSHOT_ID
 ```
 
+### New Management Commands (v0.30.0)
+
+```bash
+# Inspect staging vs published state side by side
+fabio data-agent get-config --workspace $WS --id $DA --stage staging
+fabio data-agent get-config --workspace $WS --id $DA --stage published
+fabio data-agent list-datasources --workspace $WS --id $DA --stage published
+
+# Update datasource instructions without re-adding the datasource
+fabio data-agent update-datasource --workspace $WS --id $DA \
+  --datasource $LH \
+  --instructions "Focus on the sales schema only" \
+  --description "Sales lakehouse (production)"
+
+# Update a specific few-shot example in place
+FEWSHOT_ID=$(fabio data-agent list-fewshots --workspace $WS --id $DA \
+  --datasource $LH -q 'data[0].id' -o plain)
+fabio data-agent update-fewshot --workspace $WS --id $DA \
+  --datasource $LH --fewshot-id $FEWSHOT_ID \
+  --answer "SELECT TOP 1 customer_name, SUM(revenue) FROM orders GROUP BY customer_name ORDER BY 2 DESC"
+
+# Show a specific few-shot
+fabio data-agent show-fewshot --workspace $WS --id $DA \
+  --datasource $LH --fewshot-id $FEWSHOT_ID
+
+# Reset all few-shots for a datasource
+fabio data-agent clear-fewshots --workspace $WS --id $DA --datasource $LH
+
+# Delete a stale element from schema
+fabio data-agent delete-element --workspace $WS --id $DA \
+  --datasource $LH --element-id <uuid>
+
+# Discard staging changes and revert to published state
+fabio data-agent reset --workspace $WS --id $DA
+```
+
 ### Publishing and Querying
 
 ```bash
 # Publish the agent (activates the chat endpoint — no portal needed)
 fabio data-agent publish --workspace $WS --id $DA --description "v1.0 production"
-
-# Also publish to M365 Copilot Agent Store
-fabio data-agent publish --workspace $WS --id $DA --to-m365
 
 # Query the published agent
 fabio data-agent query --workspace $WS --id $DA \
