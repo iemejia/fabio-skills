@@ -1152,8 +1152,10 @@ fabio data-agent show-fewshot --workspace $WS --id $DA \
 fabio data-agent clear-fewshots --workspace $WS --id $DA --datasource $LH
 
 # Delete a stale element from schema
+ELEMENT_ID=$(fabio data-agent list-elements --workspace $WS --id $DA \
+  --datasource $LH -q 'data[0].path' -o plain)
 fabio data-agent delete-element --workspace $WS --id $DA \
-  --datasource $LH --element-id <uuid>
+  --datasource $LH --element-id $ELEMENT_ID
 
 # Discard staging changes and revert to published state
 fabio data-agent reset --workspace $WS --id $DA

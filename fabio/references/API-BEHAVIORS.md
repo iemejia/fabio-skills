@@ -1274,7 +1274,7 @@ When `private_link_workspace` is configured via profile, URLs are transformed fo
 `POST /workspaces/{ws}/dataflows/{id}/executeQuery` returns binary Apache Arrow IPC stream (NOT JSON). Save with `--file` flag. Requires Contributor role.
 
 ### LRO Support (v0.30.0+)
-For long-running queries, the endpoint returns **202 Accepted** and polls until completion (up to 90s server-side). The `--wait` flag controls polling behavior.
+For long-running queries, the endpoint returns **202 Accepted** and polls until completion (up to 90s server-side). Use the global `--lro-timeout` flag (default 120s) to control the polling timeout.
 
 ### Arrow Version Selection
 Use `--arrow-version 1|2` to select the Apache Arrow IPC format version (default: 1). Sets `Accept: application/vnd.apache.arrow.stream;pq-arrow-version=<N>` header. Arrow v2 is required for newer Dataflow versions.
