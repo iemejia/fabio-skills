@@ -71,7 +71,7 @@ fabio context list
 {"error": {"code": "NOT_FOUND", "message": "...", "hint": "..."}}
 ```
 
-Error codes: `AUTH_REQUIRED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `RATE_LIMITED`, `CAPACITY_INACTIVE`, `INVALID_INPUT`, `API_ERROR`, `TIMEOUT`, `NETWORK_ERROR`
+Error codes: `AUTH_REQUIRED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `RATE_LIMITED`, `CAPACITY_INACTIVE`, `INVALID_INPUT`, `API_ERROR`, `TIMEOUT`, `NETWORK_ERROR`, `READONLY_MODE`
 
 ## Global Flags
 
@@ -88,6 +88,28 @@ Error codes: `AUTH_REQUIRED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `RATE_LIMITE
 | `--profile` | Use a named profile |
 | `--hard-delete` | Permanently delete (skip recycle bin) |
 | `--lro-timeout` | LRO polling timeout (default: 120s) |
+| `--readonly` | Block ALL mutations at HTTP layer (env: `FABIO_READONLY`) |
+| `--enable-commands` | Allowlist command groups (env: `FABIO_ENABLE_COMMANDS`) |
+| `--disable-commands` | Denylist command groups (env: `FABIO_DISABLE_COMMANDS`) |
+
+## Agent Safety
+
+```bash
+# Read-only mode: blocks POST/PUT/PATCH/DELETE before network dispatch
+fabio --readonly workspace list                    # works (GET)
+fabio --readonly workspace create --name "test"    # BLOCKED (READONLY_MODE error)
+
+# Command allowlist: only listed groups are available (parent allows children)
+fabio --enable-commands "workspace,lakehouse,context" workspace list   # works
+fabio --enable-commands "workspace,lakehouse,context" deploy plan ...  # BLOCKED (FORBIDDEN)
+
+# Command denylist: deny overrides allow
+fabio --disable-commands "workspace.delete,lakehouse.delete" workspace list  # works
+fabio --disable-commands "workspace.delete" workspace delete --id $WS       # BLOCKED
+
+# Via env vars (operator sets, agent cannot override)
+FABIO_READONLY=true FABIO_ENABLE_COMMANDS=workspace,lakehouse,context fabio ...
+```
 
 ## Authentication
 
