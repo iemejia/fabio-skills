@@ -2,336 +2,136 @@
 name: fabio
 description: "Manage Microsoft Fabric artifacts and data using the fabio CLI - an agent-native command-line tool with 851+ subcommands across 74 groups, structured JSON output, composable piping, and machine-readable errors. Use when working with Fabric workspaces, lakehouses, warehouses, notebooks, eventhouses, semantic models, reports, data pipelines, KQL databases, eventstreams, deploy CI/CD, REST passthrough, Power BI API, capacity lifecycle, app-backend (Power Apps), data-build-tool-job (dbt), org-app (Organizational App), azure-databricks-storage (Azure Databricks integration), or any Fabric REST API resource. Covers CRUD operations, file upload/download, SQL/DAX/KQL queries, Git integration, deployment pipelines, CI/CD deploy (plan/apply/export/validate/config-file/git-diff), natural language to KQL, KQL schema discovery and diagnostics, and administration."
 license: MIT
-compatibility: "Requires fabio binary (Linux/macOS/Windows x64/arm64). Authentication via `fabio auth login` (uses same Microsoft Identity platform as Azure CLI). Strongly recommended companions: az (Azure CLI) for supplementary Azure operations, gh (GitHub CLI) for release downloads. Network access to api.fabric.microsoft.com, api.powerbi.com, and onelake.dfs.fabric.microsoft.com required."
+compatibility: "Requires fabio binary (Linux/macOS/Windows x64/arm64). Authentication via `fabio auth login` (uses same Microsoft Identity platform as Azure CLI). Network access to api.fabric.microsoft.com, api.powerbi.com, and onelake.dfs.fabric.microsoft.com required."
 metadata:
   author: iemejia
-  version: "0.30.0"
+  version: "0.31.0-dev"
   repository: https://github.com/iemejia/fabio
 ---
 
 # fabio — Agent-Native CLI for Microsoft Fabric
 
-## Overview
-
-`fabio` is a CLI designed for AI agents first, humans second. It manages the entire Microsoft Fabric platform (851+ subcommands across 74 groups) from the command line with structured JSON output, composable stdin/stdout piping, machine-readable error codes, and non-interactive operation.
-
-## Installation
-
-### Download Pre-built Binary (Recommended)
-
-Run the bundled install script to download the latest release:
+## Quick Start
 
 ```bash
-# Auto-detect OS/arch and install to ~/.local/bin (or /usr/local/bin)
+# Install (auto-detect OS/arch)
 bash scripts/install.sh
-```
+# Or: cargo install --git https://github.com/iemejia/fabio.git
 
-Or manually download from GitHub Releases:
+# Upgrade if already installed
+fabio upgrade
 
-```bash
-# Get latest version tag
-VERSION=$(curl -s https://api.github.com/repos/iemejia/fabio/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
-
-# Linux x64
-curl -fsSL "https://github.com/iemejia/fabio/releases/download/${VERSION}/fabio-linux-x64.tar.gz" | tar xz -C /usr/local/bin
-
-# Linux arm64
-curl -fsSL "https://github.com/iemejia/fabio/releases/download/${VERSION}/fabio-linux-arm64.tar.gz" | tar xz -C /usr/local/bin
-
-# macOS arm64 (Apple Silicon)
-curl -fsSL "https://github.com/iemejia/fabio/releases/download/${VERSION}/fabio-macos-arm64.tar.gz" | tar xz -C /usr/local/bin
-
-# Windows x64 (PowerShell)
-# Invoke-WebRequest "https://github.com/iemejia/fabio/releases/download/${VERSION}/fabio-windows-x64.zip" -OutFile fabio.zip
-# Expand-Archive fabio.zip -DestinationPath $env:USERPROFILE\.local\bin
-```
-
-### Docker (multi-arch: linux/amd64 + linux/arm64)
-
-```bash
-# Always latest stable release
-docker pull ghcr.io/iemejia/fabio:latest
-
-# Run with service principal auth via env vars
-docker run --rm \
-  -e AZURE_CLIENT_ID=$AZURE_CLIENT_ID \
-  -e AZURE_CLIENT_SECRET=$AZURE_CLIENT_SECRET \
-  -e AZURE_TENANT_ID=$AZURE_TENANT_ID \
-  ghcr.io/iemejia/fabio:0.30.0 fabio workspace list
-```
-
-### Build from Source (requires Rust 1.96+)
-
-```bash
-cargo install --git https://github.com/iemejia/fabio.git
-```
-
-## Pre-flight: Version Check
-
-Before executing any fabio command, ensure the installed version is up to date. If fabio is already on PATH, use its built-in upgrade mechanism instead of reinstalling:
-
-```bash
-# 1. Check if fabio is installed
-if command -v fabio &>/dev/null; then
-  # 2. Check for updates and upgrade if a newer version is available
-  fabio upgrade
-else
-  # 3. Not installed — run the install script
-  bash scripts/install.sh
-fi
-```
-
-The `fabio upgrade` command downloads the latest release with SHA-256 checksum verification and performs an atomic binary replacement. It is safe to run at any time — it is a no-op when already on the latest version and refuses to downgrade without `--force`.
-
-> **Always run this check at the start of every session before any other fabio command.**
-
-## Authentication
-
-fabio has its own built-in OAuth2 authentication — no Azure CLI dependency required.
-
-```bash
-# Interactive device code flow (headless/SSH environments)
-fabio auth login
-
-# Browser-based PKCE flow (faster; SSO on macOS Enterprise Extension)
-fabio auth login --browser
-
-# Service principal with client secret
-fabio auth login --service-principal --tenant <tid> --client-id <cid> --client-secret <secret>
-
-# Service principal with certificate (PEM or PFX)
-fabio auth login --service-principal --tenant <tid> --client-id <cid> --certificate <path> [--certificate-password <pw>]
-
-# Service principal with federated token (OIDC/GitHub Actions)
-fabio auth login --service-principal --tenant <tid> --client-id <cid> --federated-token <token>
-# Or via file:
-fabio auth login --service-principal --tenant <tid> --client-id <cid> --federated-token-file <path>
-
-# Windows WAM broker SSO (Windows only — uses current Windows account)
-fabio auth login --wam
-
-# Verify authentication status
-fabio auth status
-```
-
-Supported credential sources (via DefaultAzureCredential chain):
-- **fabio auth login** (preferred — independent OAuth2, no `az` needed): device code, browser PKCE, service principal (secret/cert/federated), Windows WAM
-- Environment variables (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET`)
-- Managed Identity (when running on Azure)
-- Azure CLI (`az login`) as fallback
-
-## Companion Tools (Strongly Recommended)
-
-fabio works best alongside these CLIs:
-
-| Tool | Purpose | Install |
-|------|---------|---------|
-| `az` (Azure CLI) | Supplementary Azure operations (networking, IAM, storage accounts) that fall outside Fabric scope. | [Install Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) |
-| `gh` (GitHub CLI) | Download fabio releases (`gh release download`), manage issues, and authenticate with GitHub repos for Fabric Git integration | [Install GitHub CLI](https://cli.github.com/) |
-
-```bash
-# Verify companions are available
-az --version
-gh --version
-
-# Use gh to download the latest fabio release
-gh release download --repo iemejia/fabio --pattern "fabio-linux-x64.tar.gz" --dir /tmp
-tar xzf /tmp/fabio-linux-x64.tar.gz -C ~/.local/bin
-
-# Authenticate with fabio
+# Authenticate (no Azure CLI dependency)
 fabio auth login
 fabio auth status
 ```
 
-`fabio auth login` handles authentication independently using the Microsoft Identity platform. `az` remains useful for Azure operations outside Fabric scope (networking, IAM, storage). `gh` simplifies downloading fabio binaries and is useful when Fabric workspaces are connected to GitHub repositories via `fabio git connect`.
+## Runtime Discovery (Preferred Over Reading Docs)
 
-## Core Concepts
+fabio has built-in introspection. Use these commands instead of reading reference files:
 
-### Output Format
+```bash
+# Find commands — compact index of all 74 groups + subcommands
+fabio context agent
 
-All commands produce structured JSON by default. The envelope format is:
+# Deep-dive on one command — all flags, types, output shape
+fabio context describe <group> <command>
+
+# Search commands by keyword
+fabio context find "upload"
+
+# Multi-step workflow recipes
+fabio context workflow <name>
+# Available: lakehouse-etl, rti-pipeline, direct-lake-report, cicd-deploy, data-agent-setup
+
+# Best practices
+fabio context best-practices <topic>
+# Available: throttling, lro, pagination, admin-apis, shortcuts
+
+# Item definition format (for create/update-definition)
+fabio context schema <type>
+
+# Output shape example for a specific command
+fabio context examples <group> <command>
+
+# List all discoverable topics
+fabio context list
+```
+
+## Output & Errors
 
 ```json
 // List operations
 {"data": [...], "count": N}
 
-// Single object operations
+// Single object
 {"data": {...}}
 
-// Errors (on stderr, non-zero exit)
+// Errors (stderr, non-zero exit)
 {"error": {"code": "NOT_FOUND", "message": "...", "hint": "..."}}
 ```
 
-Use `-o table` for human-readable output, `-o plain` for one-value-per-line shell scripting, `-o csv` or `-o tsv` for tabular data export.
+Error codes: `AUTH_REQUIRED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `RATE_LIMITED`, `CAPACITY_INACTIVE`, `INVALID_INPUT`, `API_ERROR`, `TIMEOUT`, `NETWORK_ERROR`
 
-### Error Codes
-
-Machine-readable error codes: `AUTH_REQUIRED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `RATE_LIMITED`, `CAPACITY_INACTIVE`, `INVALID_INPUT`, `API_ERROR`, `TIMEOUT`, `NETWORK_ERROR`
-
-Errors include `hint` fields with actionable suggestions for self-correction.
-
-### Global Options
+## Global Flags
 
 | Flag | Purpose |
 |------|---------|
 | `-o`, `--output` | `json` (default), `table`, `plain`, `csv`, `tsv` |
-| `--json` | Shorthand for `--output json` |
-| `-q`, `--query` | JMESPath expression (jmespath.org) — use `[*].field` for list projection |
-| `-v`, `--verbose` | HTTP/LRO/auth diagnostics to stderr (for debugging only) |
-| `--quiet` | Suppress stdout (errors still on stderr) |
-| `--force` | Skip confirmation for destructive ops |
+| `-q`, `--query` | JMESPath expression for field projection |
 | `--dry-run` | Preview mutations without executing |
-| `--limit` | Limit list results |
 | `--all` | Auto-paginate all pages |
-| `--continuation-token` | Resume pagination |
+| `--limit` | Limit list results |
+| `--quiet` | Suppress stdout |
+| `--wait` | Block until async job completes |
+| `--timeout` | Timeout for `--wait` (seconds) |
 | `--profile` | Use a named profile |
-| `--lro-timeout` | Custom LRO polling timeout |
-| `--hard-delete` | Permanently delete (skip recycle bin) — supported on all 38 item type delete commands |
+| `--hard-delete` | Permanently delete (skip recycle bin) |
+| `--lro-timeout` | LRO polling timeout (default: 120s) |
 
-### Long-Running Operations (LRO)
-
-Many operations are async. Use `--wait` to block until completion:
+## Authentication
 
 ```bash
-fabio notebook run --workspace $WS --id $NB --wait --timeout 600
-```
-
-LRO pattern: 2s polling interval, 120s max wait by default. Status transitions: `NotStarted` -> `InProgress` -> `Succeeded`/`Failed`.
-
-### Agent Introspection
-
-Every `fabio <group> --help` now includes a `CONTEXT` section pointing to relevant schemas, workflows, and examples. This teaches agents to consult the context system before attempting commands.
-
-```bash
-# Get machine-readable command schema (all commands with flags, types, mutability)
-fabio context agent
-
-# Get item type definition schemas, workflow recipes, best-practices, output examples
-fabio context schema <TYPE>           # Definition format for an item type (e.g., Notebook, Lakehouse)
-fabio context workflow <NAME>         # Multi-step workflow recipe
-fabio context best-practices <TOPIC> # Operational guidance (throttling, lro, pagination, admin-apis, shortcuts)
-fabio context examples <GROUP> [CMD] # Output shape example (CMD optional — list available examples for group)
-fabio context list                    # List all available topics
-fabio context tenant --workspace $WS --format graph  # graph|jsonld|owl|rdf|full
-```
-
-## Workflow: From Sign-In to Queryable Data
-
-```bash
-# 1. Authenticate
+# Device code (headless/SSH)
 fabio auth login
 
-# 2. Create workspace with capacity
-fabio workspace create --name "analytics"
-fabio workspace assign-capacity --id $WS --capacity $CAP
+# Browser PKCE (faster, SSO on macOS)
+fabio auth login --browser
 
-# 3. Create lakehouse
-fabio lakehouse create --workspace $WS --name "DataLake"
+# Service principal (CI/CD)
+fabio auth login --service-principal --tenant <T> --client-id <C> --client-secret <S>
 
-# 4. Upload data (glob patterns, parallel)
-fabio lakehouse upload --workspace $WS --id $LH --source "data/*.csv" --dest Files/raw/
+# Service principal with federated token (GitHub Actions OIDC)
+fabio auth login --service-principal --tenant <T> --client-id <C> --federated-token-file <path>
 
-# 5. Load into Delta table
-fabio lakehouse load-table --workspace $WS --id $LH \
-  --path Files/raw/orders.csv --table orders --mode Overwrite --format Csv
-
-# 6. Query via SQL
-fabio warehouse query --workspace $WS --id $WH \
-  --sql "SELECT country, SUM(revenue) FROM dbo.orders GROUP BY country"
+# Windows WAM broker
+fabio auth login --wam
 ```
 
-## Critical API Behaviors
+Credential chain: fabio cache > env vars > managed identity > Azure CLI > Azure Developer CLI
 
-These are essential for correct operation. See [references/API-BEHAVIORS.md](references/API-BEHAVIORS.md) for complete details.
+## Critical API Behaviors (Must-Know)
 
-1. **load-table requires PascalCase**: Mode values are `Overwrite`/`Append`, format is `Csv`/`Parquet` (not lowercase). JSON format is NOT supported.
-2. **Lakehouse tables key is `"data"`**: Unlike all other list endpoints which use `"value"`.
-3. **KQL queries split by type**: Management commands (starting with `.`) route to `/v1/rest/mgmt`; data queries to `/v2/rest/query`. Token scope is `{kusto_uri}/.default`.
-4. **Tenant-scoped endpoints**: `deployment-pipeline` (distinct from `deploy`), Connections, Capacities, Gateways have NO `/workspaces/` prefix.
-5. **OneLake atomic rename for same-item moves**: `move-file` and `move-table` use `x-ms-rename-source` header for O(1) metadata rename within the same lakehouse (returns 201). Automatically falls back to copy + delete for cross-item/cross-workspace moves (403 from rename attempt).
-6. **Definition operations are LRO**: Both `getDefinition` and `updateDefinition` use 202 + Location header polling.
-7. **Notebook source must be array of strings**: The `.ipynb` format requires `source: ["line1\n", "line2\n"]`, not a single string.
-8. **SQL Database needs F4+ capacity**: F2 fails with error 18456 State 240 for TDS connections.
-9. **Report visuals require PBIR-Legacy with prototypeQuery**: PBIR format cannot render data programmatically. Use `report.json` with `prototypeQuery` in each visual's config.
-10. **Deploy uses content-hash diffing**: SHA-256 of sorted definition parts; no state file; always queries live workspace.
-11. **Power BI and Fabric share one token**: The Fabric token (`https://api.fabric.microsoft.com/.default`) works for both `api.fabric.microsoft.com` and `api.powerbi.com`. No separate scope needed.
-12. **Capacity lifecycle via ARM API**: suspend/resume/create/update/delete use `management.azure.com` with separate ARM scope — requires Azure RBAC (Contributor) on the capacity resource.
+These cause silent failures if ignored:
 
-## Command Groups
-
-fabio has 74 command groups with 851+ subcommands covering the full Fabric API surface. See [references/COMMANDS.md](references/COMMANDS.md) for the complete reference.
-
-**Core**: auth, workspace, item, lakehouse, capacity, catalog, context
-**Data & Compute**: notebook, warehouse, sql-database, sql-endpoint, data-pipeline (including schedule management: create/list/get/update/delete-schedule; and instance history: list-instances, get-instance), copy-job, dataflow, environment, data-agent, ontology (including import [OWL RDF/XML + JSON-LD → Fabric, Ontology Playground compatible] and export [Fabric → OWL RDF/XML or JSON-LD, full round-trip])
-**Analytics**: report, semantic-model (including 12 Power BI API commands: clone, export-pbix, import-pbix, list-users, etc.), paginated-report, dashboard, datamart
-**Real-Time Intelligence**: eventhouse, eventstream (24 subcommands including add-sample-source, add-derived-stream, validate, list-components), kql-database (21 subcommands including schema discovery: list-entities, describe, describe-entity, sample; inline ingestion: ingest; diagnostics, show-queryplan, deeplink), kql-queryset, kql-dashboard, reflex (including create-trigger: auto-generate full trigger from simple flags), anomaly-detector, event-schema-set, rti (nl-to-kql)
-**Power Apps & Apps**: app-backend (preview — Power Apps backend services: list, show, create [LRO], update, delete [--hard-delete]), org-app (Organizational App packages), org-app-audience (audience targeting for Org Apps)
-**Data Science**: ml-model, ml-experiment, operations-agent, spark, spark-job-definition, apache-airflow-job, data-build-tool-job (dbt integration, preview: list/show/create/update/delete/get-definition/update-definition/run [--wait])
-**Graph & Digital Twins**: graphql-api, graph-model, graph-query-set, digital-twin-builder, digital-twin-builder-flow, map
-**Mirroring**: mirrored-database, mirrored-catalog, mirrored-databricks-catalog, mirrored-warehouse, cosmos-db-database, snowflake-database, mounted-data-factory, azure-databricks-storage (AzureDatabricksStorage Fabric item: list/show/create/update/delete/get-definition/update-definition; definition format: AzureDatabricksStorageV1, part path: definition.json)
-**Integration**: git, connection, deployment-pipeline (Fabric Deployment Pipeline resource — NOT `deploy`; tenant-scoped, no --workspace), domain, job-scheduler, variable-library, user-data-function
-**CI/CD**: deploy (plan, apply, export, init-params, validate — stateless content-hash diffing, parameter substitution, rename detection, post-deploy hooks)
-**Security**: onelake-security, managed-private-endpoint, gateway (including lifecycle: check-status, check-member-status, restart [LRO], shutdown [LRO])
-**Admin**: admin (49 subcommands for tenant administration — tenant settings, workspaces, items, users, domains, tags, labels, sharing links, external data shares, workloads)
-**Tooling**: profile, jobs, feedback, operation, rest (raw REST passthrough with Power BI API support), completions (shell tab-completion scripts), upgrade (self-update: check/download/verify/replace binary)
-
-## CI/CD Deployment (fabio deploy)
-
-A stateless CI/CD engine that deploys Fabric items via content-hash diffing (no state file). Full fabric-cicd compatibility — source directories exported by Microsoft's [fabric-cicd](https://github.com/microsoft/fabric-cicd) Python library work identically with fabio, including YAML parameter files (`parameter.yml`).
-
-```bash
-# Export current workspace state to disk
-fabio deploy export --workspace $WS --dir ./fabric-items --overwrite
-
-# Validate source directory (local-only pre-flight checks, no API calls)
-fabio deploy validate --source ./fabric-items
-
-# Plan changes (compare source directory against live workspace)
-fabio deploy plan --source ./fabric-items --workspace $WS
-
-# Apply changes (create/update/rename items to match source)
-fabio deploy apply --source ./fabric-items --workspace $WS
-
-# Deploy only items changed since a git ref (selective deploy)
-fabio deploy plan --source ./fabric-items --workspace $WS --git-diff main
-
-# Deploy with config file (per-environment workspace mapping)
-fabio deploy apply --config deploy.yaml --env prod
-
-# Deploy with filtering
-fabio deploy apply --source ./fabric-items --workspace $WS \
-  --exclude-regex "^Test" --include-folders "/ETL,/Reports"
-
-# Generate parameters.json for multi-environment deploys
-fabio deploy init-params --source ./fabric-items --out parameters.json
-
-# Deploy with environment-specific parameters
-fabio deploy apply --source ./fabric-items --workspace $WS_PROD \
-  --parameters parameters.json --env prod
-```
-
-Key behaviors:
-- **Stateless**: Always queries live workspace (no `.tfstate` equivalent)
-- **Content-hash diffing**: SHA-256 of sorted (path, payload) pairs detects actual changes
-- **fabric-cicd compatible**: Parses `.children/` KQL discovery, `.pbi/` exclusion, Report `byPath`→`byConnection`, notebook ordering, `ItemDisplayNameNotAvailableYet` retry
-- **Config file** (`--config deploy.yaml --env prod`): JSON or YAML with per-environment workspace mapping, filtering, and option defaults
-- **Git-diff selective deploy** (`--git-diff <ref>`): Only deploys items changed since a git reference
-- **Workspace folder management**: Infers folder hierarchy from source directory, creates/moves/deletes automatically
-- **Workspace ID auto-replacement**: Replaces `00000000-...` placeholder with target workspace UUID (regex on workspace-reference keys only; opt-out: `--no-workspace-id-replace`)
-- **Protected type deletion**: Lakehouse, Warehouse, SQLDatabase, Eventhouse, KQLDatabase require `--allow-delete-types` to be deleted
-- **Rename detection**: Two-pass matching by (type, name) then by logicalId
-- **Parallel execution**: Bounded concurrency (default 8) per type batch with rate-limit retry
-- **46 item types in dependency order**: Storage → compute → code → models → reactive → APIs
-- **Post-deploy hooks**: SemanticModel → refresh, Environment → publish (opt-out via `--no-post-hooks`)
-- **Parameter substitution**: find_replace, key_value_replace, spark_pool, semantic_model_binding
-- **Parameter file format**: `--parameters` accepts JSON (`.json`) or YAML (`.yml`/`.yaml`) — auto-detected by extension; fabric-cicd's `parameter.yml` files work directly
-- **`.platform` in parts but excluded from hash**: Sent to API for metadata updates, but excluded from content hash (API rewrites `logicalId`, breaking idempotency if hashed)
+1. **PascalCase values required** — `Overwrite` not `overwrite`, `Csv` not `csv`, `Parquet` not `parquet`. Load-table ONLY supports Csv and Parquet (not JSON).
+2. **Tenant-scoped commands** — `deployment-pipeline`, `connection`, `capacity`, `domain`, `gateway` have NO `--workspace` flag. They operate at tenant level.
+3. **LRO awareness** — Create, getDefinition, updateDefinition return 202. Jobs use `--wait` + `--timeout`. Default LRO poll: 2s interval, 120s max.
+4. **Token sharing** — Same Fabric token (`https://api.fabric.microsoft.com/.default`) works for Power BI API. Use `fabio rest call --api powerbi` for Power BI endpoints.
+5. **KQL uses separate scope** — KQL database queries scope to `{kusto_uri}/.default`, not the standard Fabric scope. Management commands (`.show`) use `/v1/rest/mgmt`; data queries use `/v2/rest/query`.
+6. **OneLake atomic rename** — `move-file` and `move-table` use O(1) metadata rename within same lakehouse. Falls back to copy+delete for cross-item moves.
+7. **Notebook source format** — `.ipynb` cells require `source: ["line1\n", "line2\n"]` (array of strings, not single string).
+8. **Deploy is stateless** — Content-hash diffing against live workspace. No state file. SHA-256 of sorted (path, payload) pairs.
+9. **Hard delete on 38 item types** — `--hard-delete` flag permanently removes items (skips recycle bin). Without it, items go to recycle bin.
+10. **SQL Database needs F4+ capacity** — F2 fails with error 18456 State 240 for TDS connections.
+11. **Report visuals need PBIR-Legacy** — PBIR format cannot render data programmatically. Use `report.json` with `prototypeQuery`.
+12. **ARM scope for capacity lifecycle** — suspend/resume/create/delete use `management.azure.com` with Azure RBAC (Contributor role required).
 
 ## Composability Patterns
 
 ```bash
-# Pipe workspace ID into subsequent commands
-WS=$(fabio workspace list --query id --limit 1 -o plain)
+# Extract a single value
+WS=$(fabio workspace list --query 'data[0].id' -o plain)
 
 # Pipe SQL from file
 fabio warehouse query --workspace $WS --id $WH --sql @queries/report.sql
@@ -339,29 +139,26 @@ fabio warehouse query --workspace $WS --id $WH --sql @queries/report.sql
 # Pipe SQL from stdin
 echo "SELECT COUNT(*) FROM dbo.orders" | fabio warehouse query --workspace $WS --id $WH
 
-# Chain create + populate
-fabio lakehouse create --workspace $WS --name "NewLake" | \
-  jq -r '.data.id' | \
-  xargs -I{} fabio lakehouse upload --workspace $WS --id {} --source "data/*" --dest Files/
+# Chain create + use
+ID=$(fabio lakehouse create --workspace $WS --name "Lake" --query 'data.id' -o plain)
+fabio lakehouse upload --workspace $WS --id $ID --source "data/*.csv" --dest Files/raw/
 ```
 
 ## Throttling Awareness
 
-- Prefer bulk/batch APIs over repeated individual calls (e.g., `item bulk-create`, `item bulk-delete`, workspace role batch-assign, domain batch-assign)
-- Prefer list APIs over repeated single-resource requests (single list call + client-side filter rather than N individual show calls)
-- Use `--all` for paginated lists instead of manual loop with `--continuation-token`
-- The CLI handles rate-limit retry automatically for parallel operations
-- Spark cold start on small capacity: 2-5 minutes for first notebook run
-- Deploy uses bounded concurrency (default 8) with automatic rate-limit retry
+- Prefer bulk/batch APIs: `item bulk-create`, `item bulk-delete`, workspace role batch-assign
+- Prefer list APIs + client-side filter over N individual show calls
+- Use `--all` for paginated lists (not manual loops with `--continuation-token`)
+- Rate-limit retry is automatic for parallel operations
+- Deploy uses bounded concurrency (default 8) with rate-limit retry
 
 ## Key URLs
 
-- Fabric REST API: `https://api.fabric.microsoft.com/v1`
-- Power BI REST API: `https://api.powerbi.com/v1.0/myorg`
-- OneLake DFS: `https://onelake.dfs.fabric.microsoft.com`
-- OneLake Blob: `https://onelake.blob.fabric.microsoft.com`
-- Fabric scope: `https://api.fabric.microsoft.com/.default`
-- Storage scope: `https://storage.azure.com/.default`
-- ARM scope: `https://management.azure.com/.default`
-- Repository: `https://github.com/iemejia/fabio`
-- Releases: `https://github.com/iemejia/fabio/releases`
+| Endpoint | URL |
+|----------|-----|
+| Fabric REST API | `https://api.fabric.microsoft.com/v1` |
+| Power BI REST API | `https://api.powerbi.com/v1.0/myorg` |
+| OneLake DFS | `https://onelake.dfs.fabric.microsoft.com` |
+| Fabric scope | `https://api.fabric.microsoft.com/.default` |
+| Storage scope | `https://storage.azure.com/.default` |
+| ARM scope | `https://management.azure.com/.default` |
