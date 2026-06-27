@@ -60,18 +60,24 @@ fabio context list
 
 ## Output & Errors
 
-```json
-// List operations
-{"data": [...], "count": N}
+All commands output JSON by default. The envelope format is:
 
-// Single object
-{"data": {...}}
-
-// Errors (stderr, non-zero exit)
-{"error": {"code": "NOT_FOUND", "message": "...", "hint": "..."}}
+```
+List:   {"data": [...items...], "count": N}     ← array in "data", count of items
+Object: {"data": {...fields...}}                 ← single object in "data"
+Error:  {"error": {"code": "...", "hint": "..."}} ← on stderr, non-zero exit
 ```
 
+Extract items: `--query 'data[].displayName'`. Extract count: `--query count`. Use `-o table` for human-readable output, `-o tsv` for Excel import.
+
 Error codes: `AUTH_REQUIRED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `RATE_LIMITED`, `CAPACITY_INACTIVE`, `INVALID_INPUT`, `API_ERROR`, `TIMEOUT`, `NETWORK_ERROR`, `READONLY_MODE`
+
+**Error recovery patterns:**
+- `AUTH_REQUIRED` (exit 3): Run `fabio auth login`
+- `FORBIDDEN` (exit 4): Need Member or Admin role on workspace. Delete requires Member+.
+- `CAPACITY_INACTIVE` (exit 7): Resume capacity with `fabio capacity resume --id $CAP`
+- `RATE_LIMITED` (exit 7): Retry automatically handled; reduce concurrency if persistent
+- `TIMEOUT` (exit 8): Increase with `--timeout <seconds>` (e.g., `--timeout 1800` for 30min)
 
 ## Global Flags
 
@@ -132,22 +138,160 @@ fabio auth login --wam
 
 Credential chain: fabio cache > env vars > managed identity > Azure CLI > Azure Developer CLI
 
+## Command Quick Reference
+
+76 command groups. Use `fabio context agent --group <name>` for full flag details.
+
+**Core:**
+```bash
+fabio workspace create --name "MyProject"
+fabio workspace assign-capacity --id $WS --capacity $CAP    # two-step: create, THEN assign
+fabio workspace list                                         # returns {"data":[...],"count":N}
+fabio item list --workspace $WS --type Lakehouse             # filter by type
+fabio item exists --workspace $WS --id $ID                   # returns {"data":{"exists":true}}
+fabio item bulk-create --workspace $WS --items '[{"type":"Notebook","displayName":"NB1"},{"type":"Notebook","displayName":"NB2"}]'
+fabio item bulk-delete --workspace $WS --ids "$ID1,$ID2"     # parallel delete
+fabio capacity list                                          # tenant-scoped (no --workspace)
+fabio gateway list                                           # tenant-scoped (no --workspace)
+fabio deployment-pipeline list                               # tenant-scoped (no --workspace)
+```
+
+**Lakehouse (files, tables, sync, Iceberg):**
+```bash
+fabio lakehouse create --workspace $WS --name "DataLake"
+fabio lakehouse list --workspace $WS                         # workspace-scoped (requires --workspace)
+fabio lakehouse list-files --workspace $WS --id $LH --path Files/raw/
+# Upload THEN load (two-step: upload puts file in Files/, load-table reads from there)
+fabio lakehouse upload --workspace $WS --id $LH --source "data/*.csv" --dest Files/raw/
+fabio lakehouse load-table --workspace $WS --id $LH \
+  --path Files/raw/sales.csv --table sales --mode Overwrite --format Csv   # PascalCase!
+# Or use upload-table for one-step upload+load:
+fabio lakehouse upload-table --workspace $WS --id $LH \
+  --source data.csv --table orders --mode Overwrite --format Csv
+# Rename a file (uses atomic O(1) metadata rename within same lakehouse)
+fabio lakehouse move-file --workspace $WS --id $LH --source Files/old.csv --dest Files/new.csv
+# Sync between lakehouses (rsync-like: ETag comparison, rename detection)
+fabio lakehouse sync --source-workspace $WS --source-id $LH1 --source-path Files/ \
+  --dest-workspace $WS --dest-id $LH2 --dest-path Files/ --delete
+# Sync local directory to lakehouse (upload only new/changed files)
+fabio lakehouse sync --local ./data/ --dest-workspace $WS --dest-id $LH --dest-path Files/data
+```
+
+**Warehouse & SQL:**
+```bash
+fabio warehouse create --workspace $WS --name "Analytics"
+fabio warehouse query --workspace $WS --id $WH --sql "SELECT COUNT(*) FROM dbo.orders"
+fabio warehouse query --workspace $WS --id $WH --sql @queries/report.sql   # from file
+fabio sql-database create --workspace $WS --name "OrdersDB"
+fabio sql-database import --workspace $WS --id $DB --file data.csv --table orders --drop-if-exists
+```
+
+**KQL & Real-Time Intelligence:**
+```bash
+fabio eventhouse create --workspace $WS --name "TelemetryHub"
+fabio kql-database create --workspace $WS --name "SensorDB" --eventhouse-id $EH   # requires --eventhouse-id
+fabio kql-database query --workspace $WS --id $KDB --kql "SensorEvents | take 10"
+fabio kql-database list-entities --workspace $WS --id $KDB                         # schema discovery
+fabio kql-database ingest --workspace $WS --id $KDB --table Events --data "col1,col2\nval1,val2"
+fabio eventstream create --workspace $WS --name "Ingestion"
+fabio eventstream add-source --workspace $WS --id $ES --name "src" --source-type CustomEndpoint
+fabio rti nl-to-kql --workspace $WS --item-id $KDB --cluster-url $URI --database $DB --question "how many events?"
+```
+
+**Notebooks:**
+```bash
+fabio notebook create --workspace $WS --name "ETL" --lakehouse $LH --source etl.py
+fabio notebook run --workspace $WS --id $NB --wait --timeout 600    # block until done, 10min max
+fabio notebook get-definition --workspace $WS --id $NB --strip-output
+```
+
+**Semantic Models & Reports:**
+```bash
+fabio semantic-model create --workspace $WS --name "Sales" --file model.tmdl --connection $SQLEP
+fabio semantic-model query --workspace $WS --id $SM --dax "EVALUATE Sales"
+fabio semantic-model refresh --workspace $WS --id $SM
+fabio report create --workspace $WS --name "Dashboard" --dataset $SM
+```
+
+**Data Pipeline & Job Scheduling:**
+```bash
+fabio data-pipeline create --workspace $WS --name "Daily-ETL"
+fabio data-pipeline run --workspace $WS --id $DP --wait                    # trigger + wait
+fabio data-pipeline create-schedule --workspace $WS --id $DP --content '{"enabled":true,...}'
+fabio job-scheduler run-on-demand --workspace $WS --id $ITEM --job-type Pipeline \
+  --wait --timeout 300 --cancel-on-timeout                                 # generic job runner
+fabio spark-job-definition run --workspace $WS --id $SJD --wait --timeout 600
+```
+
+**Git Integration:**
+```bash
+fabio git connect --workspace $WS --provider github --owner org --repo repo --branch main --connection-id $CONN
+fabio git init --workspace $WS --strategy prefer-workspace
+fabio git status --workspace $WS
+fabio git commit --workspace $WS --message "feat: add pipeline" --wait
+fabio git pull --workspace $WS --strategy prefer-remote --wait
+```
+
+**Deploy (CI/CD — stateless content-hash diffing):**
+```bash
+fabio deploy export --workspace $WS --dir ./fabric-items/ --overwrite      # export workspace→disk
+fabio deploy validate --source ./fabric-items/                              # offline pre-flight checks
+fabio deploy plan --source ./fabric-items/ --workspace "Production"         # diff source vs live
+fabio deploy apply --source ./fabric-items/ --workspace "Production"        # apply changes
+fabio deploy apply --source ./items/ --workspace $WS --parameters params.json --env prod  # with env params
+fabio deploy apply --config deploy.yaml --env staging                       # config file: per-env workspace mapping
+fabio deploy init-params --source ./fabric-items/ --out params.json         # scaffold parameter file
+```
+`--workspace` accepts a display name OR GUID. Deploy handles LRO polling automatically for all create/update operations.
+
+**Profiles (saved default settings):**
+```bash
+fabio profile save --name dev --workspace $DEV_WS --default-output table
+fabio profile use --name dev                                                # activate profile
+fabio profile list                                                          # show all (marks active)
+fabio lakehouse list --profile prod                                         # one-off override
+```
+
+**Admin (tenant-scoped, requires Fabric admin role):**
+```bash
+fabio admin list-workspaces                                                 # no --workspace (tenant-level)
+fabio admin list-tenant-settings
+fabio admin list-items
+```
+
+## Stable Exit Codes
+
+Agents can branch on `$?` without parsing JSON:
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | Generic error (API_ERROR, INVALID_INPUT) |
+| 2 | Usage error (bad syntax) |
+| 3 | AUTH_REQUIRED |
+| 4 | FORBIDDEN / READONLY_MODE |
+| 5 | NOT_FOUND |
+| 6 | CONFLICT |
+| 7 | RATE_LIMITED / CAPACITY_INACTIVE |
+| 8 | TIMEOUT |
+| 9 | NETWORK_ERROR |
+
 ## Critical API Behaviors (Must-Know)
 
 These cause silent failures if ignored:
 
-1. **PascalCase values required** — `Overwrite` not `overwrite`, `Csv` not `csv`, `Parquet` not `parquet`. Load-table ONLY supports Csv and Parquet (not JSON).
-2. **Tenant-scoped commands** — `deployment-pipeline`, `connection`, `capacity`, `domain`, `gateway` have NO `--workspace` flag. They operate at tenant level.
-3. **LRO awareness** — Create, getDefinition, updateDefinition return 202. Jobs use `--wait` + `--timeout`. Default LRO poll: 2s interval, 120s max.
-4. **Token sharing** — Same Fabric token (`https://api.fabric.microsoft.com/.default`) works for Power BI API. Use `fabio rest call --api powerbi` for Power BI endpoints.
-5. **KQL uses separate scope** — KQL database queries scope to `{kusto_uri}/.default`, not the standard Fabric scope. Management commands (`.show`) use `/v1/rest/mgmt`; data queries use `/v2/rest/query`.
-6. **OneLake atomic rename** — `move-file` and `move-table` use O(1) metadata rename within same lakehouse. Falls back to copy+delete for cross-item moves.
+1. **PascalCase values are MANDATORY** — `--mode Overwrite` (not `overwrite`), `--format Csv` (not `csv`), `--format Parquet` (not `parquet`). load-table ONLY supports `Csv` and `Parquet` — **JSON format is NOT supported** (convert to CSV/Parquet first).
+2. **Tenant-scoped commands** — `deployment-pipeline`, `connection`, `capacity`, `domain`, `gateway`, `admin` have NO `--workspace` flag. They operate at tenant level.
+3. **LRO default behavior** — Create, getDefinition, updateDefinition use LRO (202 + polling). Default: **2-second polling interval, 120-second max wait**. Jobs use `--wait` + `--timeout` (default 600s). Deploy apply handles LRO automatically for all item operations.
+4. **Delete requires Member/Admin role** — Delete operations return FORBIDDEN without sufficient workspace role. Error hints show the required role.
+5. **Token sharing** — Same Fabric token (`https://api.fabric.microsoft.com/.default`) works for Power BI API. Use `fabio rest call --api powerbi` for Power BI endpoints.
+6. **KQL uses separate scope** — KQL database queries scope to `{kusto_uri}/.default`, not the standard Fabric scope.
 7. **Notebook source format** — `.ipynb` cells require `source: ["line1\n", "line2\n"]` (array of strings, not single string).
-8. **Deploy is stateless** — Content-hash diffing against live workspace. No state file. SHA-256 of sorted (path, payload) pairs.
-9. **Hard delete on 38 item types** — `--hard-delete` flag permanently removes items (skips recycle bin). Without it, items go to recycle bin.
-10. **SQL Database needs F4+ capacity** — F2 fails with error 18456 State 240 for TDS connections.
-11. **Report visuals need PBIR-Legacy** — PBIR format cannot render data programmatically. Use `report.json` with `prototypeQuery`.
-12. **ARM scope for capacity lifecycle** — suspend/resume/create/delete use `management.azure.com` with Azure RBAC (Contributor role required).
+8. **Deploy is stateless** — Content-hash diffing against live workspace. No state file. `--workspace` accepts display name or GUID (auto-resolved).
+9. **Hard delete on 38 item types** — `--hard-delete` flag permanently removes items (skips recycle bin).
+10. **SQL Database needs F4+ capacity** — F2 fails with error 18456 State 240.
+11. **Report visuals need PBIR-Legacy** — PBIR format cannot render data programmatically.
+12. **ARM scope for capacity lifecycle** — suspend/resume/create/delete use `management.azure.com`.
 
 ## Composability Patterns
 
