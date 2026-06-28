@@ -2,10 +2,26 @@
 
 > **This repository has been superseded.** The fabio agent skill now ships directly in the main repository at [`.agents/skills/fabio/`](https://github.com/iemejia/fabio/tree/main/.agents/skills/fabio).
 >
-> Install from the main repo:
+> ## Migration
+>
 > ```bash
+> # 1. Remove the old skill
+> npx skills remove fabio
+>
+> # 2. Install from the main repo (always up to date)
 > npx skills add https://github.com/iemejia/fabio
 > ```
+>
+> Or if you cloned manually:
+> ```bash
+> # Remove old clone
+> rm -rf ~/.agents/skills/fabio-skills
+>
+> # Install new (skill is at .agents/skills/fabio/ inside the repo)
+> npx skills add https://github.com/iemejia/fabio
+> ```
+>
+> The new skill is identical in content but updates atomically with the CLI — no more version lag.
 >
 > This repository is archived for historical reference only.
 
