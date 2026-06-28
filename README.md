@@ -1,3 +1,18 @@
+# fabio-skills (DEPRECATED)
+
+> **This repository has been superseded.** The fabio agent skill now ships directly in the main repository at [`.agents/skills/fabio/`](https://github.com/iemejia/fabio/tree/main/.agents/skills/fabio).
+>
+> Install from the main repo:
+> ```bash
+> npx skills add https://github.com/iemejia/fabio
+> ```
+>
+> This repository is archived for historical reference only.
+
+---
+
+_Original README below:_
+
 # fabio-skills
 
 [Agent Skills](https://agentskills.io) for [fabio](https://github.com/iemejia/fabio) — the agent-first CLI for Microsoft Fabric.
